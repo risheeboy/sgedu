@@ -1,6 +1,6 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
-import { VertexAI } from "@google-cloud/vertexai";
+import { VertexAI, type Tool, SchemaType } from "@google-cloud/vertexai";
 
 admin.initializeApp();
 
@@ -8,7 +8,7 @@ admin.initializeApp();
 const projectId = "edurishit"; // Replace with your project ID
 const location = "asia-southeast1"; // Replace with your location
 const vertexAI = new VertexAI({ project: projectId, location: location });
-const model = "gemini-pro";
+const genAI = vertexAI.preview;
 
 interface QuestionDoc {
   subject: string;
@@ -39,26 +39,36 @@ export const generateQuestions = onDocumentWritten(
 
     try {
       // Get the generative model
-      const generativeModel = vertexAI.preview.getGenerativeModel({
-        model: model,
-        generationConfig: {
-          maxOutputTokens: 2048,
-          temperature: 0.9,
-          topP: 1,
-        },
-      });
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      
+      // Configure search tool for grounding
+      const searchTool: Tool = {
+        functionDeclarations: [{
+          name: "googleSearch",
+          description: "Search the web for relevant information",
+          parameters: {
+            type: SchemaType.OBJECT,
+            properties: {}
+          }
+        }]
+      };
 
       // Generate questions using Gemini
-      const result = await generativeModel.generateContent({
+      const result = await model.generateContent({
         contents: [{ 
           role: "user", 
           parts: [{ 
-            text: `You are an expert education question generator specializing in the Singapore education system. Generate 5 questions about ${data.subject} appropriate for ${data.grade} level students in Singapore.
+            text: `You are an expert education question generator specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 5 challenging questions about ${data.subject} appropriate for ${data.grade} level students in Singapore.
 
             Consider these Singapore-specific guidelines:
-            - For Primary (P1-P6): Align with MOE syllabus requirements and PSLE standards
-            - For Secondary (Sec 1-4): Match O-Level examination standards and subject requirements
-            - For JC (JC1-2): Follow A-Level examination complexity and depth
+            - For Primary (P1-P6): Reference PSLE standards and past year papers
+            - For Secondary (Sec 1-4): Use O-Level examination standards and past questions
+            - For JC (JC1-2): Follow A-Level examination patterns and difficulty
+
+            Before generating questions:
+            1. Search for past year ${data.subject} exam papers for ${data.grade} in Singapore
+            2. Search for ${data.subject} assessment objectives and marking rubrics for ${data.grade}
+            3. Use these resources to ensure questions match national examination standards
 
             Your response must be a valid JSON object with exactly this structure:
             {
@@ -67,21 +77,28 @@ export const generateQuestions = onDocumentWritten(
                   "question": "string",
                   "correctAnswer": "string",
                   "explanation": "string",
-                  "difficulty": "string (Easy/Medium/Hard)",
+                  "difficulty": "Hard",
                   "type": "string (MCQ/Short Answer/Structured/Application)"
                 }
               ]
             }
 
             Ensure questions:
-            - Match the exact cognitive and analytical skills required for the specified grade
-            - Include application-based and higher-order thinking questions
-            - Follow Singapore's subject-specific assessment objectives
-            - Use appropriate technical terms and concepts for the grade level
+            - Match the exact difficulty level of national examinations
+            - Focus on application and higher-order thinking skills
+            - Include real-world contexts and scenarios
+            - Use precise technical terminology from the syllabus
+            - Cover key examination topics and assessment objectives
+            - Follow official marking schemes and rubrics
 
             Important: Return ONLY the JSON object, no other text or formatting.`
           }]
         }],
+        tools: [searchTool],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
       });
 
       const response = result.response;
