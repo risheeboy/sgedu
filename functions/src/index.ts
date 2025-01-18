@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { VertexAI } from "@google-cloud/vertexai";
 
@@ -19,14 +19,18 @@ interface QuestionDoc {
   timestamp: admin.firestore.Timestamp;
 }
 
-exports.generateQuestions = functions
-  .runWith({
-    memory: "512MB",
-    timeoutSeconds: 300,
-  })
-  .firestore.document("questions/{questionId}")
-  .onCreate(async (snap, context) => {
-    const data = snap.data() as QuestionDoc;
+export const generateQuestions = onDocumentWritten(
+  {
+    document: "questions/{questionId}",
+    region: "asia-southeast1"
+  },
+  async (event) => {
+    if (!event.data) return;
+    
+    const afterData = event.data.after;
+    if (!afterData) return;
+    
+    const data = afterData.data() as QuestionDoc;
 
     // Only process documents with 'pending' status
     if (data.status !== "pending") {
@@ -37,10 +41,10 @@ exports.generateQuestions = functions
       // Get the generative model
       const generativeModel = vertexAI.preview.getGenerativeModel({
         model: model,
-        generation_config: {
-          max_output_tokens: 2048,
+        generationConfig: {
+          maxOutputTokens: 2048,
           temperature: 0.9,
-          top_p: 1,
+          topP: 1,
         },
       });
 
@@ -72,7 +76,7 @@ exports.generateQuestions = functions
       }
 
       // Update the document with generated questions
-      await snap.ref.update({
+      await afterData.ref.update({
         questions: generatedText,
         status: "completed",
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -83,7 +87,7 @@ exports.generateQuestions = functions
       console.error("Error generating questions:", error);
 
       // Update document with error status
-      await snap.ref.update({
+      await afterData.ref.update({
         status: "error",
         error: error instanceof Error ? error.message : "Unknown error occurred",
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
