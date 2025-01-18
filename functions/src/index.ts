@@ -12,7 +12,7 @@ const model = "gemini-pro";
 
 interface QuestionDoc {
   subject: string;
-  level: string;
+  grade: string;
   status: string;
   questions?: string;
   error?: string;
@@ -53,7 +53,7 @@ export const generateQuestions = onDocumentWritten(
         contents: [{ 
           role: "user", 
           parts: [{ 
-            text: `You are a question generator. Generate 5 questions about ${data.subject} for ${data.level} level students.
+            text: `You are a question generator. Generate 5 questions about ${data.subject} for ${data.grade} level students.
             Your response must be a valid JSON object with exactly this structure:
             {
               "questions": [

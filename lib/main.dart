@@ -39,7 +39,7 @@ class QuestionGeneratorPage extends StatefulWidget {
 class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   final _questionService = QuestionService();
   final _subjectController = TextEditingController();
-  String _selectedLevel = 'Beginner';
+  String _selectedGrade = '1';
   List<Question>? _questions;
   bool _isLoading = false;
   bool _showAnswers = false;
@@ -67,7 +67,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
     try {
       final questions = await _questionService.generateQuestions(
         _subjectController.text,
-        _selectedLevel,
+        _selectedGrade,
       );
       setState(() {
         _questions = questions;
@@ -106,20 +106,20 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedLevel,
+                  value: _selectedGrade,
                   decoration: const InputDecoration(
-                    labelText: 'Level',
+                    labelText: 'Grade',
                     border: OutlineInputBorder(),
                   ),
-                  items: ['Beginner', 'Intermediate', 'Advanced']
-                      .map((level) => DropdownMenuItem(
-                            value: level,
-                            child: Text(level),
+                  items: List.generate(12, (index) => (index + 1).toString())
+                      .map((grade) => DropdownMenuItem(
+                            value: grade,
+                            child: Text('Grade $grade'),
                           ))
                       .toList(),
                   onChanged: (value) {
                     setState(() {
-                      _selectedLevel = value!;
+                      _selectedGrade = value!;
                     });
                   },
                 ),
