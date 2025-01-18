@@ -1,0 +1,261 @@
+[debug] [2025-01-18T05:01:29.158Z] ----------------------------------------------------------------------
+[debug] [2025-01-18T05:01:29.161Z] Command:       C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2025-01-18T05:01:29.161Z] CLI Version:   13.29.1
+[debug] [2025-01-18T05:01:29.161Z] Platform:      win32
+[debug] [2025-01-18T05:01:29.161Z] Node Version:  v21.4.0
+[debug] [2025-01-18T05:01:29.162Z] Time:          Sat Jan 18 2025 13:01:29 GMT+0800 (Singapore Standard Time)
+[debug] [2025-01-18T05:01:29.162Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-01-18T05:01:29.225Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-01-18T05:01:29.225Z] > authorizing via signed-in user (rishee.boy@gmail.com)
+[debug] [2025-01-18T05:01:29.225Z] [iam] checking project edurishit for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-01-18T05:01:29.226Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:29.226Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:29.227Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/edurishit:testIamPermissions [none]
+[debug] [2025-01-18T05:01:29.227Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/edurishit:testIamPermissions x-goog-quota-user=projects/edurishit
+[debug] [2025-01-18T05:01:29.227Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/edurishit:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-01-18T05:01:30.267Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/edurishit:testIamPermissions 200
+[debug] [2025-01-18T05:01:30.267Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/edurishit:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-01-18T05:01:30.267Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:30.267Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:30.267Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/edurishit/serviceAccounts/edurishit@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-01-18T05:01:30.267Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/edurishit/serviceAccounts/edurishit@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-01-18T05:01:31.579Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/edurishit/serviceAccounts/edurishit@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-01-18T05:01:31.579Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/edurishit/serviceAccounts/edurishit@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'edurishit'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix "$RESOURCE_DIR" run build
+[info] +  functions: Finished running predeploy script. 
+[debug] [2025-01-18T05:01:33.958Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:33.958Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:33.958Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/edurishit [none]
+[debug] [2025-01-18T05:01:34.195Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/edurishit 200
+[debug] [2025-01-18T05:01:34.195Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/edurishit {"projectNumber":"350183278922","projectId":"edurishit","lifecycleState":"ACTIVE","name":"educ","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-01-18T03:30:55.480943Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[debug] [2025-01-18T05:01:34.197Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:34.197Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:34.197Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:34.197Z] Checked if tokens are valid: true, expires at: 1737179618269
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[debug] [2025-01-18T05:01:34.197Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:34.197Z] Checked if tokens are valid: true, expires at: 1737179618269
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2025-01-18T05:01:34.198Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:34.198Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:34.198Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/cloudfunctions.googleapis.com [none]
+[debug] [2025-01-18T05:01:34.198Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/cloudfunctions.googleapis.com x-goog-quota-user=projects/edurishit
+[debug] [2025-01-18T05:01:34.199Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/runtimeconfig.googleapis.com [none]
+[debug] [2025-01-18T05:01:34.199Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/runtimeconfig.googleapis.com x-goog-quota-user=projects/edurishit
+[debug] [2025-01-18T05:01:34.200Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/cloudbuild.googleapis.com [none]
+[debug] [2025-01-18T05:01:34.200Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/cloudbuild.googleapis.com x-goog-quota-user=projects/edurishit
+[debug] [2025-01-18T05:01:34.200Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/artifactregistry.googleapis.com [none]
+[debug] [2025-01-18T05:01:34.200Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/artifactregistry.googleapis.com x-goog-quota-user=projects/edurishit
+[debug] [2025-01-18T05:01:35.511Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/cloudfunctions.googleapis.com 200
+[debug] [2025-01-18T05:01:35.511Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/cloudfunctions.googleapis.com [omitted]
+[info] +  functions: required API cloudfunctions.googleapis.com is enabled 
+[debug] [2025-01-18T05:01:35.559Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/cloudbuild.googleapis.com 200
+[debug] [2025-01-18T05:01:35.559Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/cloudbuild.googleapis.com [omitted]
+[info] +  functions: required API cloudbuild.googleapis.com is enabled 
+[debug] [2025-01-18T05:01:35.568Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/runtimeconfig.googleapis.com 200
+[debug] [2025-01-18T05:01:35.568Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/runtimeconfig.googleapis.com [omitted]
+[debug] [2025-01-18T05:01:35.580Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/artifactregistry.googleapis.com 200
+[debug] [2025-01-18T05:01:35.581Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/edurishit/services/artifactregistry.googleapis.com [omitted]
+[info] +  artifactregistry: required API artifactregistry.googleapis.com is enabled 
+[debug] [2025-01-18T05:01:35.581Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:35.581Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:35.581Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/edurishit/adminSdkConfig [none]
+[debug] [2025-01-18T05:01:35.853Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/edurishit/adminSdkConfig 200
+[debug] [2025-01-18T05:01:35.853Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/edurishit/adminSdkConfig {"projectId":"edurishit","storageBucket":"edurishit.firebasestorage.app"}
+[debug] [2025-01-18T05:01:35.853Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:35.854Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:35.854Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/edurishit/configs [none]
+[debug] [2025-01-18T05:01:36.285Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/edurishit/configs 200
+[debug] [2025-01-18T05:01:36.285Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/edurishit/configs {}
+[debug] [2025-01-18T05:01:36.287Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2025-01-18T05:01:37.381Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@google-cloud/vertexai": "^0.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^4.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.5"
+  },
+  "private": true
+}
+[debug] [2025-01-18T05:01:37.381Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2025-01-18T05:01:37.383Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-01-18T05:01:37.389Z] Found firebase-functions binary at 'C:\Users\ashis\CascadeProjects\edu\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8628
+
+[error] (node:21372) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+[debug] [2025-01-18T05:01:37.889Z] Got response from /__/functions.yaml {"endpoints":{"generateQuestions":{"platform":"gcfv1","availableMemoryMb":512,"timeoutSeconds":300,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/edurishit/databases/(default)/documents/questions/{questionId}"},"retry":false},"labels":{},"entryPoint":"generateQuestions"}},"specVersion":"v1alpha1","requiredAPIs":[]}
+[info] i  functions: preparing functions directory for uploading... 
+[info] i  functions: packaged C:\Users\ashis\CascadeProjects\edu\functions (41.57 KB) for uploading 
+[debug] [2025-01-18T05:01:42.948Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:42.948Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:42.949Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/-/functions [none]
+[debug] [2025-01-18T05:01:43.645Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/-/functions 200
+[debug] [2025-01-18T05:01:43.645Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/-/functions {}
+[debug] [2025-01-18T05:01:43.646Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:43.646Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:43.646Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/edurishit/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2025-01-18T05:01:45.164Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/edurishit/locations/-/functions 200
+[debug] [2025-01-18T05:01:45.164Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/edurishit/locations/-/functions {}
+[debug] [2025-01-18T05:01:45.167Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:45.167Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:45.167Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/edurishit [none]
+[debug] [2025-01-18T05:01:46.215Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/edurishit 200
+[debug] [2025-01-18T05:01:46.215Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/edurishit {"projectNumber":"350183278922","projectId":"edurishit","lifecycleState":"ACTIVE","name":"educ","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-01-18T03:30:55.480943Z"}
+[debug] [2025-01-18T05:01:46.216Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:46.216Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:46.216Z] >>> [apiv2][query] POST https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions:generateUploadUrl [none]
+[debug] [2025-01-18T05:01:46.217Z] >>> [apiv2][body] POST https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions:generateUploadUrl {}
+[debug] [2025-01-18T05:01:46.981Z] <<< [apiv2][status] POST https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions:generateUploadUrl 200
+[debug] [2025-01-18T05:01:46.981Z] <<< [apiv2][body] POST https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions:generateUploadUrl {"uploadUrl":"https://storage.googleapis.com/uploads-507037451098.us-central1.cloudfunctions.appspot.com/792e6e6d-bfac-4bca-ab1d-1bc05a8aa841.zip?GoogleAccessId=service-350183278922@gcf-admin-robot.iam.gserviceaccount.com&Expires=1737178308&Signature=JuiBMM9U%2F2tG6O%2FKViwcuyPYZWnPdK3ML%2BCHfbhCWmLZg3usQzam9LSdyNHzmav2cN%2FntkIMYDEsyiDSafdzudGNXNV2KGTy0zUB8hapHOz9bHeROXvCpAidFSD4fjHhYZrscWJRlZcrzcxpk8iSfYBzEFTgm8p987m7ROgRJkXvSGZF4pMnvT6fK8uxa%2F0yG0Ki%2BAO%2BNgeSFi7GLXRqUz398dZ%2BAEGIyu8%2Bd%2BpD7Gm9UHqSrnP4Fnt4dl3bMfEVf6iEhfJ7WXpkFoc%2FMEwDYLfisWHM8jdZbDIAVkKgQMChehnKRNHLN2B8pDiMFdeR0u71erkecHukgOvXdhP6ZQ%3D%3D"}
+[debug] [2025-01-18T05:01:46.982Z] >>> [apiv2][query] PUT https://storage.googleapis.com/uploads-507037451098.us-central1.cloudfunctions.appspot.com/792e6e6d-bfac-4bca-ab1d-1bc05a8aa841.zip GoogleAccessId=service-350183278922%40gcf-admin-robot.iam.gserviceaccount.com&Expires=1737178308&Signature=JuiBMM9U%2F2tG6O%2FKViwcuyPYZWnPdK3ML%2BCHfbhCWmLZg3usQzam9LSdyNHzmav2cN%2FntkIMYDEsyiDSafdzudGNXNV2KGTy0zUB8hapHOz9bHeROXvCpAidFSD4fjHhYZrscWJRlZcrzcxpk8iSfYBzEFTgm8p987m7ROgRJkXvSGZF4pMnvT6fK8uxa%2F0yG0Ki%2BAO%2BNgeSFi7GLXRqUz398dZ%2BAEGIyu8%2Bd%2BpD7Gm9UHqSrnP4Fnt4dl3bMfEVf6iEhfJ7WXpkFoc%2FMEwDYLfisWHM8jdZbDIAVkKgQMChehnKRNHLN2B8pDiMFdeR0u71erkecHukgOvXdhP6ZQ%3D%3D
+[debug] [2025-01-18T05:01:46.983Z] >>> [apiv2][body] PUT https://storage.googleapis.com/uploads-507037451098.us-central1.cloudfunctions.appspot.com/792e6e6d-bfac-4bca-ab1d-1bc05a8aa841.zip [stream]
+[debug] [2025-01-18T05:01:47.351Z] <<< [apiv2][status] PUT https://storage.googleapis.com/uploads-507037451098.us-central1.cloudfunctions.appspot.com/792e6e6d-bfac-4bca-ab1d-1bc05a8aa841.zip 200
+[debug] [2025-01-18T05:01:47.351Z] <<< [apiv2][body] PUT https://storage.googleapis.com/uploads-507037451098.us-central1.cloudfunctions.appspot.com/792e6e6d-bfac-4bca-ab1d-1bc05a8aa841.zip [omitted]
+[info] +  functions: functions folder uploaded successfully 
+[info] i  functions: creating Node.js 20 (1st Gen) function generateQuestions(us-central1)... 
+[debug] [2025-01-18T05:01:47.354Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:47.354Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:47.354Z] >>> [apiv2][query] POST https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions [none]
+[debug] [2025-01-18T05:01:47.354Z] >>> [apiv2][body] POST https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions {"name":"projects/edurishit/locations/us-central1/functions/generateQuestions","sourceUploadUrl":"https://storage.googleapis.com/uploads-507037451098.us-central1.cloudfunctions.appspot.com/792e6e6d-bfac-4bca-ab1d-1bc05a8aa841.zip?GoogleAccessId=service-350183278922@gcf-admin-robot.iam.gserviceaccount.com&Expires=1737178308&Signature=JuiBMM9U%2F2tG6O%2FKViwcuyPYZWnPdK3ML%2BCHfbhCWmLZg3usQzam9LSdyNHzmav2cN%2FntkIMYDEsyiDSafdzudGNXNV2KGTy0zUB8hapHOz9bHeROXvCpAidFSD4fjHhYZrscWJRlZcrzcxpk8iSfYBzEFTgm8p987m7ROgRJkXvSGZF4pMnvT6fK8uxa%2F0yG0Ki%2BAO%2BNgeSFi7GLXRqUz398dZ%2BAEGIyu8%2Bd%2BpD7Gm9UHqSrnP4Fnt4dl3bMfEVf6iEhfJ7WXpkFoc%2FMEwDYLfisWHM8jdZbDIAVkKgQMChehnKRNHLN2B8pDiMFdeR0u71erkecHukgOvXdhP6ZQ%3D%3D","entryPoint":"generateQuestions","runtime":"nodejs20","dockerRegistry":"ARTIFACT_REGISTRY","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"e06fd106b6a9047e922da12f8d45ec952b233f49"},"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","resource":"projects/edurishit/databases/(default)/documents/questions/{questionId}"},"minInstances":null,"maxInstances":null,"ingressSettings":null,"environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"edurishit\",\"storageBucket\":\"edurishit.firebasestorage.app\"}","GCLOUD_PROJECT":"edurishit","EVENTARC_CLOUD_EVENT_SOURCE":"projects/edurishit/locations/us-central1/functions/generateQuestions"},"serviceAccountEmail":null,"availableMemoryMb":512,"timeout":"300s","vpcConnector":null,"vpcConnectorEgressSettings":null,"buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""}}
+[debug] [2025-01-18T05:01:49.686Z] <<< [apiv2][status] POST https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions 400
+[debug] [2025-01-18T05:01:49.686Z] <<< [apiv2][body] POST https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions {"error":{"code":400,"message":"Failed to create 1st Gen function projects/edurishit/locations/us-central1/functions/generateQuestions: Default service account '350183278922-compute@developer.gserviceaccount.com' doesn't exist. Please recreate this account or specify a different account. Please visit https://cloud.google.com/functions/docs/troubleshooting for in-depth troubleshooting documentation.","status":"FAILED_PRECONDITION"}}
+[warn] !  functions: failed to create function projects/edurishit/locations/us-central1/functions/generateQuestions 
+[error] Failed to create function projects/edurishit/locations/us-central1/functions/generateQuestions
+[debug] [2025-01-18T05:01:49.691Z] Total Function Deployment time: 2335
+[debug] [2025-01-18T05:01:49.691Z] 1 Functions Deployed
+[debug] [2025-01-18T05:01:49.691Z] 1 Functions Errored
+[debug] [2025-01-18T05:01:49.691Z] 0 Function Deployments Aborted
+[debug] [2025-01-18T05:01:49.691Z] Average Function Deployment time: 2334
+[info] 
+[info] Functions deploy had errors with the following functions:
+	generateQuestions(us-central1)
+[info] i  functions: cleaning up build files... 
+[debug] [2025-01-18T05:01:49.717Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:49.717Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:49.717Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:49.717Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:49.717Z] >>> [apiv2][query] DELETE https://artifactregistry.googleapis.com/v1beta2/projects/edurishit/locations/us-central1/repositories/gcf-artifacts/packages/generate_questions [none]
+[debug] [2025-01-18T05:01:49.718Z] >>> [apiv2][query] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list [none]
+[debug] [2025-01-18T05:01:50.046Z] <<< [apiv2][status] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list 404
+[debug] [2025-01-18T05:01:50.046Z] <<< [apiv2][body] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list {"errors":[{"code":"NAME_UNKNOWN","message":"Repository \"us.gcr.io\" not found"}]}
+[debug] [2025-01-18T05:01:50.047Z] Failed docker command with error  Request to https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list had HTTP Error: 404, Not Found {"name":"FirebaseError","children":[],"context":{"body":{"errors":[{"code":"NAME_UNKNOWN","message":"Repository \"us.gcr.io\" not found"}],"error":{"message":"Not Found"}},"response":{"statusCode":404}},"exit":1,"message":"Request to https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list had HTTP Error: 404, Not Found","status":404}
+[debug] [2025-01-18T05:01:50.060Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:50.060Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:50.060Z] >>> [apiv2][query] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list [none]
+[debug] [2025-01-18T05:01:50.369Z] <<< [apiv2][status] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list 404
+[debug] [2025-01-18T05:01:50.369Z] <<< [apiv2][body] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list {"errors":[{"code":"NAME_UNKNOWN","message":"Repository \"us.gcr.io\" not found"}]}
+[debug] [2025-01-18T05:01:50.369Z] Failed docker command with error  Request to https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list had HTTP Error: 404, Not Found {"name":"FirebaseError","children":[],"context":{"body":{"errors":[{"code":"NAME_UNKNOWN","message":"Repository \"us.gcr.io\" not found"}],"error":{"message":"Not Found"}},"response":{"statusCode":404}},"exit":1,"message":"Request to https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list had HTTP Error: 404, Not Found","status":404}
+[debug] [2025-01-18T05:01:50.480Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:50.480Z] Checked if tokens are valid: true, expires at: 1737179618269
+[debug] [2025-01-18T05:01:50.481Z] >>> [apiv2][query] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list [none]
+[debug] [2025-01-18T05:01:50.778Z] <<< [apiv2][status] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list 404
+[debug] [2025-01-18T05:01:50.778Z] <<< [apiv2][body] GET https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list {"errors":[{"code":"NAME_UNKNOWN","message":"Repository \"us.gcr.io\" not found"}]}
+[debug] [2025-01-18T05:01:50.778Z] Failed docker command with error  Request to https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list had HTTP Error: 404, Not Found {"name":"FirebaseError","children":[],"context":{"body":{"errors":[{"code":"NAME_UNKNOWN","message":"Repository \"us.gcr.io\" not found"}],"error":{"message":"Not Found"}},"response":{"statusCode":404}},"exit":1,"message":"Request to https://us.gcr.io/v2/edurishit/gcf/us-central1/tags/list had HTTP Error: 404, Not Found","status":404}
+[debug] [2025-01-18T05:01:50.971Z] <<< [apiv2][status] DELETE https://artifactregistry.googleapis.com/v1beta2/projects/edurishit/locations/us-central1/repositories/gcf-artifacts/packages/generate_questions 404
+[debug] [2025-01-18T05:01:50.971Z] <<< [apiv2][body] DELETE https://artifactregistry.googleapis.com/v1beta2/projects/edurishit/locations/us-central1/repositories/gcf-artifacts/packages/generate_questions {"error":{"code":404,"message":"Package \"projects/edurishit/locations/us-central1/repositories/gcf-artifacts/packages/generate_questions\" was not found.","status":"NOT_FOUND"}}
+[warn] !  functions: Unhandled error cleaning up build images. This could result in a small monthly bill if not corrected. You can attempt to delete these images by redeploying or you can delete them manually at https://console.cloud.google.com/gcr/images/edurishit/us/gcf 
+[debug] [2025-01-18T05:01:50.972Z] Functions deploy failed.
+[debug] [2025-01-18T05:01:50.972Z] {
+  "endpoint": {
+    "id": "generateQuestions",
+    "project": "edurishit",
+    "region": "us-central1",
+    "entryPoint": "generateQuestions",
+    "platform": "gcfv1",
+    "runtime": "nodejs20",
+    "eventTrigger": {
+      "eventType": "providers/cloud.firestore/eventTypes/document.create",
+      "retry": false,
+      "eventFilters": {
+        "resource": "projects/edurishit/databases/(default)/documents/questions/{questionId}"
+      }
+    },
+    "labels": {
+      "deployment-tool": "cli-firebase"
+    },
+    "ingressSettings": null,
+    "availableMemoryMb": 512,
+    "serviceAccount": null,
+    "timeoutSeconds": 300,
+    "maxInstances": null,
+    "minInstances": null,
+    "vpc": null,
+    "environmentVariables": {
+      "FIREBASE_CONFIG": "{\"projectId\":\"edurishit\",\"storageBucket\":\"edurishit.firebasestorage.app\"}",
+      "GCLOUD_PROJECT": "edurishit",
+      "EVENTARC_CLOUD_EVENT_SOURCE": "projects/edurishit/locations/us-central1/functions/generateQuestions"
+    },
+    "codebase": "default",
+    "targetedByOnly": false,
+    "hash": "e06fd106b6a9047e922da12f8d45ec952b233f49"
+  },
+  "op": "create",
+  "original": {
+    "name": "FirebaseError",
+    "children": [],
+    "context": {
+      "function": "projects/edurishit/locations/us-central1/functions/generateQuestions"
+    },
+    "exit": 1,
+    "message": "Failed to create function projects/edurishit/locations/us-central1/functions/generateQuestions",
+    "original": {
+      "name": "FirebaseError",
+      "children": [],
+      "context": {
+        "body": {
+          "error": {
+            "code": 400,
+            "message": "Failed to create 1st Gen function projects/edurishit/locations/us-central1/functions/generateQuestions: Default service account '350183278922-compute@developer.gserviceaccount.com' doesn't exist. Please recreate this account or specify a different account. Please visit https://cloud.google.com/functions/docs/troubleshooting for in-depth troubleshooting documentation.",
+            "status": "FAILED_PRECONDITION"
+          }
+        },
+        "response": {
+          "statusCode": 400
+        }
+      },
+      "exit": 1,
+      "message": "Request to https://cloudfunctions.googleapis.com/v1/projects/edurishit/locations/us-central1/functions had HTTP Error: 400, Failed to create 1st Gen function projects/edurishit/locations/us-central1/functions/generateQuestions: Default service account '350183278922-compute@developer.gserviceaccount.com' doesn't exist. Please recreate this account or specify a different account. Please visit https://cloud.google.com/functions/docs/troubleshooting for in-depth troubleshooting documentation.",
+      "status": 400
+    },
+    "status": 400,
+    "code": 400
+  }
+}
+[debug] [2025-01-18T05:01:50.977Z] Error: Failed to create function generateQuestions in region us-central1
+    at C:\Users\ashis\AppData\Roaming\nvm\v21.4.0\node_modules\firebase-tools\lib\deploy\functions\release\fabricator.js:52:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Fabricator.createV1Function (C:\Users\ashis\AppData\Roaming\nvm\v21.4.0\node_modules\firebase-tools\lib\deploy\functions\release\fabricator.js:182:32)
+    at async Fabricator.createEndpoint (C:\Users\ashis\AppData\Roaming\nvm\v21.4.0\node_modules\firebase-tools\lib\deploy\functions\release\fabricator.js:134:13)
+    at async handle (C:\Users\ashis\AppData\Roaming\nvm\v21.4.0\node_modules\firebase-tools\lib\deploy\functions\release\fabricator.js:89:17)
+[error] 
+[error] Error: There was an error deploying functions

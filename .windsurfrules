@@ -24,12 +24,13 @@
 - AI & embedding APIs should be called from inside Firebase `onDocumentCreated` functions (not from UI) e.g. UI writes to a firebase collection and listens to firestore updates (done by function), to show the output. Increase function memory to 512 MiB when embedding is used. 
 - Google`s fast Gen AI APIs should be preferred, e.g. `gemini-2.0-flash-exp` for image understanding/text-generation and `text-multilingual-embedding-002` for multilingual embeddings. 
 - LLM text generation API calls should include response JSON schema e.g. in `type SchemaType.OBJECT` format. 
+- Use typescript for node functions.
+- Use Vertex AI with Firebase, instead of Google AI.
 
 ## Code Organization
 
 ### Key Directories
 
-- Firebase Node.JS functions (`functions/node/`)
 - Flutter services layer for Firebase interactions (`lib/services/`)
 - Flutter reusable UI components (`lib/widgets/`)
 - Flutter integration tests in (`lib/testing/integration/`)
