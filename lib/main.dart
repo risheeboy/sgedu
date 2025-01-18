@@ -40,8 +40,9 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   final _questionService = QuestionService();
   final _subjectController = TextEditingController();
   String _selectedLevel = 'Beginner';
-  String? _questions;
+  List<Question>? _questions;
   bool _isLoading = false;
+  bool _showAnswers = false;
 
   @override
   void dispose() {
@@ -60,6 +61,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
     setState(() {
       _isLoading = true;
       _questions = null;
+      _showAnswers = false;
     });
 
     try {
@@ -91,7 +93,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
         padding: const EdgeInsets.all(16.0),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
+            constraints: const BoxConstraints(maxWidth: 800),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -125,25 +127,93 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _generateQuestions,
                   child: _isLoading
-                      ? const CircularProgressIndicator()
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('Generate Questions'),
                 ),
-                const SizedBox(height: 24),
                 if (_questions != null) ...[
-                  const Text(
-                    'Generated Questions:',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Generated Questions:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _showAnswers = !_showAnswers;
+                          });
+                        },
+                        icon: Icon(_showAnswers
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        label:
+                            Text(_showAnswers ? 'Hide Answers' : 'Show Answers'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Expanded(
-                    child: Card(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(_questions!),
-                      ),
+                    child: ListView.builder(
+                      itemCount: _questions!.length,
+                      itemBuilder: (context, index) {
+                        final question = _questions![index];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Question ${index + 1}:',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  question.question,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                                if (_showAnswers) ...[
+                                  const SizedBox(height: 16),
+                                  const Divider(),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Answer:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green[700],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(question.correctAnswer),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Explanation:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange[800],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(question.explanation),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],

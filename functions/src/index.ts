@@ -48,36 +48,83 @@ export const generateQuestions = onDocumentWritten(
         },
       });
 
-      // Construct the prompt based on subject and level
-      const prompt = `Generate 5 questions about ${data.subject} for ${
-        data.level
-      } level students. Format the response in the following JSON schema:
-      {
-        "questions": [
-          {
-            "question": "The question text",
-            "correctAnswer": "The correct answer",
-            "explanation": "Detailed explanation of the answer",
-            "difficulty": "${data.level.toLowerCase()}",
-            "type": "open-ended"
-          }
-        ]
-      }`;
-
       // Generate questions using Gemini
       const result = await generativeModel.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ 
+          role: "user", 
+          parts: [{ 
+            text: `You are a question generator. Generate 5 questions about ${data.subject} for ${data.level} level students.
+            Your response must be a valid JSON object with exactly this structure:
+            {
+              "questions": [
+                {
+                  "question": "string",
+                  "correctAnswer": "string",
+                  "explanation": "string",
+                  "difficulty": "string",
+                  "type": "string"
+                }
+              ]
+            }
+            Important: Return ONLY the JSON object, no other text or formatting.`
+          }]
+        }],
       });
+
       const response = result.response;
+      console.log("Raw Gemini response:", JSON.stringify(response, null, 2));
+      
       const generatedText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+      console.log("Generated text:", generatedText);
 
       if (!generatedText) {
         throw new Error("No response generated from Gemini API");
       }
 
-      // Update the document with generated questions
+      // Clean the response text to ensure it's valid JSON
+      const cleanedText = generatedText
+        .trim()
+        .replace(/```json\n?|\n?```/g, '')
+        .replace(/^[\s\n]*\{/, '{')  // Remove any whitespace/newlines before {
+        .replace(/\}[\s\n]*$/, '}'); // Remove any whitespace/newlines after }
+      
+      console.log("Cleaned text:", cleanedText);
+      
+      // Parse and validate the JSON response
+      let parsedQuestions;
+      try {
+        parsedQuestions = JSON.parse(cleanedText);
+        console.log("Parsed questions:", JSON.stringify(parsedQuestions, null, 2));
+        
+        // Validate the structure
+        if (!parsedQuestions.questions || !Array.isArray(parsedQuestions.questions)) {
+          console.error("Invalid structure:", parsedQuestions);
+          throw new Error("Invalid response structure: missing questions array");
+        }
+
+        // Validate each question object
+        parsedQuestions.questions.forEach((q: any, index: number) => {
+          if (!q.question || !q.correctAnswer || !q.explanation || !q.difficulty || !q.type) {
+            console.error(`Invalid question ${index + 1}:`, q);
+            throw new Error(`Question ${index + 1} is missing required fields`);
+          }
+        });
+
+      } catch (error: unknown) {
+        console.error("JSON parsing error:", error);
+        console.error("Response was:", cleanedText);
+        console.error("Response type:", typeof cleanedText);
+        console.error("Response length:", cleanedText.length);
+        console.error("First 100 chars:", cleanedText.substring(0, 100));
+        console.error("Last 100 chars:", cleanedText.substring(cleanedText.length - 100));
+        
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Invalid JSON response from Gemini API: ${errorMessage}`);
+      }
+
+      // Update the document with parsed questions
       await afterData.ref.update({
-        questions: generatedText,
+        questions: JSON.stringify(parsedQuestions),
         status: "completed",
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
