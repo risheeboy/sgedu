@@ -58,7 +58,7 @@ export const generateQuestions = onDocumentWritten(
         contents: [{ 
           role: "user", 
           parts: [{ 
-            text: `You are an expert education question generator specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 5 challenging questions about ${data.subject} appropriate for ${data.grade} level students in Singapore.
+            text: `You are an expert education question generator specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 20 challenging questions about ${data.subject} appropriate for ${data.grade} level students in Singapore.
 
             Consider these Singapore-specific guidelines:
             - For Primary (P1-P6): Reference PSLE standards and past year papers
@@ -97,7 +97,7 @@ export const generateQuestions = onDocumentWritten(
         tools: [searchTool],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 8192,
         }
       });
 
