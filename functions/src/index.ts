@@ -53,7 +53,13 @@ export const generateQuestions = onDocumentWritten(
         contents: [{ 
           role: "user", 
           parts: [{ 
-            text: `You are a question generator. Generate 5 questions about ${data.subject} for ${data.grade} level students.
+            text: `You are an expert education question generator specializing in the Singapore education system. Generate 5 questions about ${data.subject} appropriate for ${data.grade} level students in Singapore.
+
+            Consider these Singapore-specific guidelines:
+            - For Primary (P1-P6): Align with MOE syllabus requirements and PSLE standards
+            - For Secondary (Sec 1-4): Match O-Level examination standards and subject requirements
+            - For JC (JC1-2): Follow A-Level examination complexity and depth
+
             Your response must be a valid JSON object with exactly this structure:
             {
               "questions": [
@@ -61,11 +67,18 @@ export const generateQuestions = onDocumentWritten(
                   "question": "string",
                   "correctAnswer": "string",
                   "explanation": "string",
-                  "difficulty": "string",
-                  "type": "string"
+                  "difficulty": "string (Easy/Medium/Hard)",
+                  "type": "string (MCQ/Short Answer/Structured/Application)"
                 }
               ]
             }
+
+            Ensure questions:
+            - Match the exact cognitive and analytical skills required for the specified grade
+            - Include application-based and higher-order thinking questions
+            - Follow Singapore's subject-specific assessment objectives
+            - Use appropriate technical terms and concepts for the grade level
+
             Important: Return ONLY the JSON object, no other text or formatting.`
           }]
         }],
