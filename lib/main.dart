@@ -39,8 +39,9 @@ class QuestionGeneratorPage extends StatefulWidget {
 class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   final _questionService = QuestionService();
   final TextEditingController _subjectController = TextEditingController();
-  String? _selectedGrade;
+  final TextEditingController _topicController = TextEditingController();
   String? _selectedSyllabus;
+  String? _selectedSubject;
   List<String>? _syllabusFiles;
   bool _isLoading = false;
   bool _showAnswers = false;
@@ -59,8 +60,13 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
         _syllabusFiles = [
           'Biology.md',
           'Chemistry.md',
+          'China-Studies-in-English.md',
           'Computing.md',
+          'Economics.md',
           'Further-Mathematics.md',
+          'Geography.md',
+          'History.md',
+          'Literature-in-English.md',
           'Mathematics.md',
           'Physics.md',
           'Principles-of-Accounting.md'
@@ -75,23 +81,24 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
       } else {
         _syllabusFiles = null;
       }
+      _selectedSubject = null; // Reset subject when syllabus changes
     });
   }
 
   @override
   void dispose() {
     _subjectController.dispose();
+    _topicController.dispose();
     super.dispose();
   }
 
   Future<void> _generateQuestions() async {
     // Validate inputs
-    if (_subjectController.text.isEmpty ||
-        _selectedGrade == null ||
+    if (_selectedSubject == null ||
         _selectedSyllabus == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill in all fields'),
+          content: Text('Please select a syllabus and subject'),
           backgroundColor: Colors.red,
         ),
       );
@@ -105,10 +112,9 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
 
     try {
       final questions = await _questionService.generateQuestions(
-        _subjectController.text,
-        _selectedGrade ?? '',
+        _selectedSubject!,
         syllabus: _selectedSyllabus!,
-        syllabusFiles: _syllabusFiles ?? [],
+        topic: _topicController.text.isNotEmpty ? _topicController.text : null,
       );
       setState(() {
         _questions = questions;
@@ -141,6 +147,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Syllabus Dropdown
                 DropdownButtonFormField<String>(
                   value: _selectedSyllabus,
                   decoration: const InputDecoration(
@@ -161,52 +168,39 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                   },
                 ),
                 const SizedBox(height: 16),
-                if (_syllabusFiles != null) ...[
-                  const Text(
-                    'Available Subjects:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                
+                // Subject Dropdown (only show when syllabus is selected)
+                if (_syllabusFiles != null) 
+                  DropdownButtonFormField<String>(
+                    value: _selectedSubject,
+                    decoration: const InputDecoration(
+                      labelText: 'Subject',
+                      border: OutlineInputBorder(),
                     ),
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _syllabusFiles!
-                        .map((file) => Chip(
-                              label: Text(file.replaceAll('.md', '')),
+                    items: _syllabusFiles!
+                        .map((file) => DropdownMenuItem(
+                              value: file.replaceAll('.md', ''),
+                              child: Text(file.replaceAll('.md', '')),
                             ))
                         .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedSubject = value;
+                      });
+                    },
                   ),
-                  const SizedBox(height: 16),
-                ],
+                const SizedBox(height: 16),
+
+                // Optional Topic Input
                 TextField(
-                  controller: _subjectController,
+                  controller: _topicController,
                   decoration: const InputDecoration(
-                    labelText: 'Subject',
+                    labelText: 'Topic (Optional)',
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedGrade,
-                  decoration: const InputDecoration(
-                    labelText: 'Grade',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: List.generate(12, (index) => (index + 1).toString())
-                      .map((grade) => DropdownMenuItem(
-                            value: grade,
-                            child: Text('Grade $grade'),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedGrade = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
+
                 ElevatedButton(
                   onPressed: _isLoading ? null : _generateQuestions,
                   child: _isLoading

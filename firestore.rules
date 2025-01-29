@@ -4,10 +4,7 @@ service cloud.firestore {
     // Allow authenticated users to read and write to the questions collection
     match /questions/{questionId} {
       allow read: if true; // request.auth != null;
-      allow create: if true // request.auth != null 
-        && request.resource.data.status == 'pending'
-        && request.resource.data.subject is string
-        && request.resource.data.grade in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+      allow create: if true; // request.auth != null;
       allow update: if false; // Only Cloud Functions can update questions
       allow delete: if false;
     }

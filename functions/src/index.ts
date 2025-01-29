@@ -12,7 +12,8 @@ const genAI = vertexAI.preview;
 
 interface QuestionDoc {
   subject: string;
-  grade: string;
+  syllabus: string;
+  topic?: string;
   status: string;
   questions?: string;
   error?: string;
@@ -58,16 +59,16 @@ export const generateQuestions = onDocumentWritten(
         contents: [{ 
           role: "user", 
           parts: [{ 
-            text: `You are an expert education question generator specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 20 challenging questions about ${data.subject} appropriate for ${data.grade} level students in Singapore.
+            text: `You are an expert education question generator specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 20 challenging questions about ${data.subject} appropriate for ${data.topic} in Singapore.
 
             Consider these Singapore-specific guidelines:
-            - For Primary (P1-P6): Reference PSLE standards and past year papers
-            - For Secondary (Sec 1-4): Use O-Level examination standards and past questions
-            - For JC (JC1-2): Follow A-Level examination patterns and difficulty
+            - PSLE: Reference PSLE standards and past year papers
+            - O-Level: Use O-Level examination standards and past questions
+            - A-Level: Follow A-Level examination patterns and difficulty
 
             Before generating questions:
-            1. Search for past year ${data.subject} exam papers for ${data.grade} in Singapore
-            2. Search for ${data.subject} assessment objectives and marking rubrics for ${data.grade}
+            1. Search for past year ${data.subject} exam papers for ${data.topic} in Singapore
+            2. Search for ${data.subject} assessment objectives and marking rubrics for ${data.topic}
             3. Use these resources to ensure questions match national examination standards
 
             Your response must be a valid JSON object with exactly this structure:
