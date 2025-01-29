@@ -30,12 +30,19 @@ class Question {
 class QuestionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Future<List<Question>> generateQuestions(String subject, String grade) async {
+  Future<List<Question>> generateQuestions(
+    String subject, 
+    String grade, {
+    String? syllabus,
+    List<String>? syllabusFiles,
+  }) async {
     try {
       // Create a document in the questions collection
       DocumentReference docRef = await _firestore.collection('questions').add({
         'subject': subject,
         'grade': grade,
+        'syllabus': syllabus,
+        'syllabusFiles': syllabusFiles ?? [],
         'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
       });

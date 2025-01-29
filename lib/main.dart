@@ -38,11 +38,45 @@ class QuestionGeneratorPage extends StatefulWidget {
 
 class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   final _questionService = QuestionService();
-  final _subjectController = TextEditingController();
-  String _selectedGrade = '1';
-  List<Question>? _questions;
+  final TextEditingController _subjectController = TextEditingController();
+  String? _selectedGrade;
+  String? _selectedSyllabus;
+  List<String>? _syllabusFiles;
   bool _isLoading = false;
   bool _showAnswers = false;
+  List<Question>? _questions;
+
+  // Add syllabus options
+  final List<String> _syllabusOptions = [
+    'Singapore GCE A-Level',
+    'Singapore GCE O-Level'
+  ];
+
+  // Method to get syllabus files based on selection
+  void _updateSyllabusFiles() {
+    setState(() {
+      if (_selectedSyllabus == 'Singapore GCE A-Level') {
+        _syllabusFiles = [
+          'Biology.md',
+          'Chemistry.md',
+          'Computing.md',
+          'Further-Mathematics.md',
+          'Mathematics.md',
+          'Physics.md',
+          'Principles-of-Accounting.md'
+        ];
+      } else if (_selectedSyllabus == 'Singapore GCE O-Level') {
+        _syllabusFiles = [
+          'Biology.md',
+          'Chemistry.md',
+          'Mathematics.md',
+          'Physics.md'
+        ];
+      } else {
+        _syllabusFiles = null;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -51,9 +85,15 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   }
 
   Future<void> _generateQuestions() async {
-    if (_subjectController.text.isEmpty) {
+    // Validate inputs
+    if (_subjectController.text.isEmpty ||
+        _selectedGrade == null ||
+        _selectedSyllabus == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a subject')),
+        const SnackBar(
+          content: Text('Please fill in all fields'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -61,20 +101,24 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
     setState(() {
       _isLoading = true;
       _questions = null;
-      _showAnswers = false;
     });
 
     try {
       final questions = await _questionService.generateQuestions(
         _subjectController.text,
-        _selectedGrade,
+        _selectedGrade ?? '',
+        syllabus: _selectedSyllabus!,
+        syllabusFiles: _syllabusFiles ?? [],
       );
       setState(() {
         _questions = questions;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(
+          content: Text('Error generating questions: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() {
@@ -97,6 +141,45 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                DropdownButtonFormField<String>(
+                  value: _selectedSyllabus,
+                  decoration: const InputDecoration(
+                    labelText: 'Syllabus',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _syllabusOptions
+                      .map((syllabus) => DropdownMenuItem(
+                            value: syllabus,
+                            child: Text(syllabus),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedSyllabus = value!;
+                      _updateSyllabusFiles();
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                if (_syllabusFiles != null) ...[
+                  const Text(
+                    'Available Subjects:',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _syllabusFiles!
+                        .map((file) => Chip(
+                              label: Text(file.replaceAll('.md', '')),
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 TextField(
                   controller: _subjectController,
                   decoration: const InputDecoration(
@@ -119,7 +202,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                       .toList(),
                   onChanged: (value) {
                     setState(() {
-                      _selectedGrade = value!;
+                      _selectedGrade = value;
                     });
                   },
                 ),

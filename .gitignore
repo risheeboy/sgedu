@@ -69,3 +69,9 @@ node_modules/
 .dataconnect
 firebase-debug.log
 .flutter-plugins-dependencies
+
+# flutter tool cache
+.dart_tool
+
+# flutter build
+build
