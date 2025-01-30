@@ -1,6 +1,8 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { VertexAI, type Tool, SchemaType } from "@google-cloud/vertexai";
+import * as path from 'path';
+import * as fs from 'fs/promises';
 
 admin.initializeApp();
 
@@ -54,21 +56,43 @@ export const generateQuestions = onDocumentWritten(
         }]
       };
 
-      // Generate questions using Gemini
-      const result = await model.generateContent({
-        contents: [{ 
-          role: "user", 
-          parts: [{ 
-            text: `You are an expert education question generator specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 20 challenging questions about ${data.subject} appropriate for ${data.topic} in Singapore.
+      // Function to read syllabus markdown file
+      const readSyllabusMarkdown = async (syllabus: string, subject: string): Promise<string> => {
+        // Map full syllabus names to directory abbreviations
+        const syllabusMap: { [key: string]: string } = {
+          'Singapore GCE A-Level': 'SGCEA',
+          'Singapore GCE O-Level': 'SGCEO'
+        };
 
-            Consider these Singapore-specific guidelines:
-            - PSLE: Reference PSLE standards and past year papers
-            - O-Level: Use O-Level examination standards and past questions
-            - A-Level: Follow A-Level examination patterns and difficulty
+        const syllabusDir = syllabusMap[syllabus];
+        if (!syllabusDir) {
+          console.error(`Unknown syllabus: ${syllabus}`);
+          return 'No specific syllabus details available.';
+        }
+
+        // Use relative path from the current file's directory
+        const syllabusPath = path.resolve(__dirname, 'syllabus', syllabusDir, `${subject}.md`);
+        
+        try {
+          const syllabusContent = await fs.readFile(syllabusPath, 'utf8');
+          return syllabusContent;
+        } catch (error) {
+          console.error(`Could not read syllabus file for ${syllabus} ${subject}:`, error);
+          return 'No specific syllabus details available.';
+        }
+      };
+
+      // Read syllabus markdown content
+      const syllabusMarkdown = await readSyllabusMarkdown(data.syllabus, data.subject);
+
+      const singaporeEducationPrompt = `You are an expert education question paper setter, specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 20 challenging questions about ${data.subject} for ${data.syllabus} ${data.topic ? `focusing on ${data.topic}` : ''} in Singapore.
+
+            Syllabus Details for Reference:
+            ${syllabusMarkdown}
 
             Before generating questions:
-            1. Search for past year ${data.subject} exam papers for ${data.topic} in Singapore
-            2. Search for ${data.subject} assessment objectives and marking rubrics for ${data.topic}
+            1. Search for past year ${data.subject} exam papers for ${data.syllabus} ${data.topic ? `in the ${data.topic} area` : ''} in Singapore
+            2. Search for ${data.subject} assessment objectives and marking rubrics for ${data.syllabus} ${data.topic ? `with focus on ${data.topic}` : ''}
             3. Use these resources to ensure questions match national examination standards
 
             Your response must be a valid JSON object with exactly this structure:
@@ -78,21 +102,26 @@ export const generateQuestions = onDocumentWritten(
                   "question": "string",
                   "correctAnswer": "string",
                   "explanation": "string",
-                  "difficulty": "Hard",
                   "type": "string (MCQ/Short Answer/Structured/Application)"
                 }
               ]
             }
 
             Ensure questions:
-            - Match the exact difficulty level of national examinations
             - Focus on application and higher-order thinking skills
             - Include real-world contexts and scenarios
             - Use precise technical terminology from the syllabus
             - Cover key examination topics and assessment objectives
             - Follow official marking schemes and rubrics
 
-            Important: Return ONLY the JSON object, no other text or formatting.`
+            Important: Return ONLY the JSON object, no other text or formatting.`;
+      console.log("Singapore Education Prompt:", singaporeEducationPrompt);
+      // Generate questions using Gemini
+      const result = await model.generateContent({
+        contents: [{ 
+          role: "user", 
+          parts: [{ 
+            text: singaporeEducationPrompt
           }]
         }],
         tools: [searchTool],
@@ -135,7 +164,7 @@ export const generateQuestions = onDocumentWritten(
 
         // Validate each question object
         parsedQuestions.questions.forEach((q: any, index: number) => {
-          if (!q.question || !q.correctAnswer || !q.explanation || !q.difficulty || !q.type) {
+          if (!q.question || !q.correctAnswer || !q.explanation || !q.type) {
             console.error(`Invalid question ${index + 1}:`, q);
             throw new Error(`Question ${index + 1} is missing required fields`);
           }

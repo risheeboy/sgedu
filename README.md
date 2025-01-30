@@ -34,6 +34,13 @@ npm install
 cd ../..
 ```
 
+### Start Development Server
+
+Launch the local web server:
+```bash
+flutter run -d chrome
+```
+
 ## Deployment
 
 ### Full Deployment
