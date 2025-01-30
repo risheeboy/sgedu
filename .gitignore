@@ -75,3 +75,5 @@ firebase-debug.log
 
 # flutter build
 build
+
+.dart_tool
