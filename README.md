@@ -31,7 +31,7 @@ flutter pub get
 ```bash
 cd functions
 npm install
-cd ../..
+cd ..
 ```
 
 ### Start Development Server
