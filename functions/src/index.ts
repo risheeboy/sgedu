@@ -71,7 +71,7 @@ export const generateQuestions = onDocumentWritten(
         }
 
         // Use relative path from the current file's directory
-        const syllabusPath = path.resolve(__dirname, 'syllabus', syllabusDir, `${subject}.md`);
+        const syllabusPath = path.join(__dirname, '../syllabus', syllabusDir, `${subject}.md`);
         
         try {
           const syllabusContent = await fs.readFile(syllabusPath, 'utf8');
@@ -87,34 +87,34 @@ export const generateQuestions = onDocumentWritten(
 
       const singaporeEducationPrompt = `You are an expert education question paper setter, specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 20 challenging questions about ${data.subject} for ${data.syllabus} ${data.topic ? `focusing on ${data.topic}` : ''} in Singapore.
 
-            Syllabus Details for Reference:
-            ${syllabusMarkdown}
+Syllabus Details for Reference:
+${syllabusMarkdown}
 
-            Before generating questions:
-            1. Search for past year ${data.subject} exam papers for ${data.syllabus} ${data.topic ? `in the ${data.topic} area` : ''} in Singapore
-            2. Search for ${data.subject} assessment objectives and marking rubrics for ${data.syllabus} ${data.topic ? `with focus on ${data.topic}` : ''}
-            3. Use these resources to ensure questions match national examination standards
+Before generating questions:
+1. Search for past year ${data.subject} exam papers for ${data.syllabus} ${data.topic ? `in the ${data.topic} area` : ''} in Singapore
+2. Search for ${data.subject} assessment objectives and marking rubrics for ${data.syllabus} ${data.topic ? `with focus on ${data.topic}` : ''}
+3. Use these resources to ensure questions match national examination standards
 
-            Your response must be a valid JSON object with exactly this structure:
-            {
-              "questions": [
-                {
-                  "question": "string",
-                  "correctAnswer": "string",
-                  "explanation": "string",
-                  "type": "string (MCQ/Short Answer/Structured/Application)"
-                }
-              ]
-            }
+Your response must be a valid JSON object with exactly this structure:
+{
+  "questions": [
+    {
+      "question": "string",
+      "correctAnswer": "string",
+      "explanation": "string",
+      "type": "string (MCQ/Short Answer/Structured/Application)"
+    }
+  ]
+}
 
-            Ensure questions:
-            - Focus on application and higher-order thinking skills
-            - Include real-world contexts and scenarios
-            - Use precise technical terminology from the syllabus
-            - Cover key examination topics and assessment objectives
-            - Follow official marking schemes and rubrics
+Ensure questions:
+- Focus on application and higher-order thinking skills
+- Include real-world contexts and scenarios
+- Use precise technical terminology from the syllabus
+- Cover key examination topics and assessment objectives
+- Follow official marking schemes and rubrics
 
-            Important: Return ONLY the JSON object, no other text or formatting.`;
+Important: Return ONLY the JSON object, no other text or formatting.`;
       console.log("Singapore Education Prompt:", singaporeEducationPrompt);
       // Generate questions using Gemini
       const result = await model.generateContent({
@@ -186,7 +186,7 @@ export const generateQuestions = onDocumentWritten(
       await afterData.ref.update({
         questions: JSON.stringify(parsedQuestions),
         status: "completed",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(), 
       });
 
       return null;

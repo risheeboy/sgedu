@@ -5,14 +5,12 @@ class Question {
   final String question;
   final String correctAnswer;
   final String explanation;
-  final String difficulty;
   final String type;
 
   Question({
     required this.question,
     required this.correctAnswer,
     required this.explanation,
-    required this.difficulty,
     required this.type,
   });
 
@@ -21,7 +19,6 @@ class Question {
       question: json['question'] as String,
       correctAnswer: json['correctAnswer'] as String,
       explanation: json['explanation'] as String,
-      difficulty: json['difficulty'] as String,
       type: json['type'] as String,
     );
   }
