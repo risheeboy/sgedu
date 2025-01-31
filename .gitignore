@@ -73,9 +73,8 @@ firebase-debug.log
 # flutter tool cache
 .dart_tool
 
-# flutter build
+# flutter files
 build
-
 .dart_tool
 .flutter-plugins
-firebase-debug.log
+lib/firebase_options.dart
