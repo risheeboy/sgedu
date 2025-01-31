@@ -20,6 +20,7 @@ node --version
 ```bash
 git clone https://github.com/ashishawasthi/storewl.git
 cd sgedu
+mv lib/firebase_options.dart.example lib/firebase_options.dart # change the values
 ```
 
 2. Install Flutter dependencies:
