@@ -13,7 +13,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBgKcz21AYNkJm16xRH4PslUF0DfzZYfeA',
+    apiKey: '',
     authDomain: 'edurishit.firebaseapp.com',
     projectId: 'edurishit',
     storageBucket: 'edurishit.firebasestorage.app',
