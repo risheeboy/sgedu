@@ -100,9 +100,9 @@ Your response must be a valid JSON object with exactly this structure:
   "questions": [
     {
       "question": "string",
-      "correctAnswer": "string",
+      "type": "string (MCQ/Short Answer/Structured/Application)",
       "explanation": "string",
-      "type": "string (MCQ/Short Answer/Structured/Application)"
+      "correctAnswer": "string"
     }
   ]
 }

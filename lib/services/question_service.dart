@@ -3,23 +3,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Question {
   final String question;
-  final String correctAnswer;
-  final String explanation;
   final String type;
+  final String explanation;
+  final String correctAnswer;
 
   Question({
     required this.question,
-    required this.correctAnswer,
-    required this.explanation,
     required this.type,
+    required this.explanation,
+    required this.correctAnswer,
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
     return Question(
       question: json['question'] as String,
-      correctAnswer: json['correctAnswer'] as String,
-      explanation: json['explanation'] as String,
       type: json['type'] as String,
+      explanation: json['explanation'] as String,
+      correctAnswer: json['correctAnswer'] as String,
     );
   }
 }
