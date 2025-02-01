@@ -1,16 +1,19 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
-import { VertexAI, type Tool, SchemaType } from "@google-cloud/vertexai";
+import * as functions from 'firebase-functions';
+import { OpenAI } from 'openai';
+import Ajv from 'ajv';
+const ajv = new Ajv();
+
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
 admin.initializeApp();
 
-// Initialize Vertex AI
-const projectId = "edurishit"; // Replace with your project ID
-const location = "asia-southeast1"; // Replace with your location
-const vertexAI = new VertexAI({ project: projectId, location: location });
-const genAI = vertexAI.preview;
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: functions.config().openai.key
+});
 
 interface QuestionDoc {
   subject: string;
@@ -21,6 +24,37 @@ interface QuestionDoc {
   error?: string;
   timestamp: admin.firestore.Timestamp;
 }
+
+const validateQuestions = ajv.compile({
+  type: 'object',
+  properties: {
+    questions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          question: { type: 'string' },
+          type: { type: 'string' },
+          explanation: { type: 'string' },
+          correctAnswer: { type: 'string' }
+        },
+        required: ['question', 'correctAnswer', 'explanation', 'type']
+      }
+    }
+  },
+  required: ['questions']
+});
+
+const validateQuestion = ajv.compile({
+  type: 'object',
+  properties: {
+    question: { type: 'string' },
+    type: { type: 'string' },
+    explanation: { type: 'string' },
+    correctAnswer: { type: 'string' }
+  },
+  required: ['question', 'correctAnswer', 'explanation', 'type']
+});
 
 export const generateQuestions = onDocumentWritten(
   {
@@ -41,21 +75,6 @@ export const generateQuestions = onDocumentWritten(
     }
 
     try {
-      // Get the generative model
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      
-      // Configure search tool for grounding
-      const searchTool: Tool = {
-        functionDeclarations: [{
-          name: "googleSearch",
-          description: "Search the web for relevant information",
-          parameters: {
-            type: SchemaType.OBJECT,
-            properties: {}
-          }
-        }]
-      };
-
       // Function to read syllabus markdown file
       const readSyllabusMarkdown = async (syllabus: string, subject: string): Promise<string> => {
         // Map full syllabus names to directory abbreviations
@@ -116,55 +135,39 @@ Ensure questions:
 
 Important: Return ONLY the JSON object, no other text or formatting.`;
       console.log("Singapore Education Prompt:", singaporeEducationPrompt);
-      // Generate questions using Gemini
-      const result = await model.generateContent({
-        contents: [{ 
-          role: "user", 
-          parts: [{ 
-            text: singaporeEducationPrompt
-          }]
+      // Generate questions using OpenAI
+      const completion = await openai.chat.completions.create({
+        model: 'o3-mini',
+        messages: [{
+          role: 'system',
+          content: singaporeEducationPrompt
         }],
-        tools: [searchTool],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 8192,
-        }
+        response_format: { type: 'json_object' }
       });
-
-      const response = result.response;
-      console.log("Raw Gemini response:", JSON.stringify(response, null, 2));
       
-      const generatedText = response.candidates?.[0]?.content?.parts?.[0]?.text;
-      console.log("Generated text:", generatedText);
-
-      if (!generatedText) {
-        throw new Error("No response generated from Gemini API");
+      // Add null safety checks here
+      const responseContent = completion?.choices?.[0]?.message?.content;
+      if (!responseContent) {
+        throw new Error("OpenAI API returned empty response content");
       }
-
-      // Clean the response text to ensure it's valid JSON
-      const cleanedText = generatedText
-        .trim()
-        .replace(/```json\n?|\n?```/g, '')
-        .replace(/^[\s\n]*\{/, '{')  // Remove any whitespace/newlines before {
-        .replace(/\}[\s\n]*$/, '}'); // Remove any whitespace/newlines after }
-      
-      console.log("Cleaned text:", cleanedText);
+      const responseJSON = JSON.parse(responseContent);
+      console.log("Raw OpenAI response:", JSON.stringify(responseJSON, null, 2));
       
       // Parse and validate the JSON response
       let parsedQuestions;
       try {
-        parsedQuestions = JSON.parse(cleanedText);
+        parsedQuestions = responseJSON;
         console.log("Parsed questions:", JSON.stringify(parsedQuestions, null, 2));
         
         // Validate the structure
-        if (!parsedQuestions.questions || !Array.isArray(parsedQuestions.questions)) {
+        if (!validateQuestions(parsedQuestions)) {
           console.error("Invalid structure:", parsedQuestions);
           throw new Error("Invalid response structure: missing questions array");
         }
 
         // Validate each question object
         parsedQuestions.questions.forEach((q: any, index: number) => {
-          if (!q.question || !q.correctAnswer || !q.explanation || !q.type) {
+          if (!validateQuestion(q)) {
             console.error(`Invalid question ${index + 1}:`, q);
             throw new Error(`Question ${index + 1} is missing required fields`);
           }
@@ -172,14 +175,14 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
 
       } catch (error: unknown) {
         console.error("JSON parsing error:", error);
-        console.error("Response was:", cleanedText);
-        console.error("Response type:", typeof cleanedText);
-        console.error("Response length:", cleanedText.length);
-        console.error("First 100 chars:", cleanedText.substring(0, 100));
-        console.error("Last 100 chars:", cleanedText.substring(cleanedText.length - 100));
+        console.error("Response was:", responseContent);
+        console.error("Response type:", typeof responseContent);
+        console.error("Response length:", responseContent.length);
+        console.error("First 100 chars:", responseContent.substring(0, 100));
+        console.error("Last 100 chars:", responseContent.substring(responseContent.length - 100));
         
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Invalid JSON response from Gemini API: ${errorMessage}`);
+        throw new Error(`Invalid JSON response from OpenAI API: ${errorMessage}`);
       }
 
       // Update the document with parsed questions
