@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'firebase_options.dart';
 import 'services/question_service.dart';
 
@@ -274,7 +275,12 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(question.correctAnswer),
+                                  MarkdownBody(
+                                    data: question.correctAnswer,
+                                    styleSheet: MarkdownStyleSheet(
+                                      p: const TextStyle(fontSize: 14.0),
+                                    ),
+                                  ),
                                   const SizedBox(height: 16),
                                   Text(
                                     'Explanation:',
@@ -284,7 +290,12 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(question.explanation),
+                                  MarkdownBody(
+                                    data: question.explanation,
+                                    styleSheet: MarkdownStyleSheet(
+                                      p: const TextStyle(fontSize: 14.0),
+                                    ),
+                                  ),
                                 ],
                               ],
                             ),

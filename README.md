@@ -60,8 +60,11 @@ Deploy specific components:
 flutter build web
 firebase deploy --only hosting
 
-# Firebase functions only
-firebase deploy --only functions
+# Firebase node functions with 5 retries on Mac
+for i in {1..5}; do firebase deploy --only functions && break; done
+
+# Firebase node functions with 5 retries on Windows powershell
+for($i=1; $i -le 5; $i++){ firebase deploy --only functions; if($LASTEXITCODE -eq 0){ break } }
 
 # Firestore rules only
 firebase deploy --only firestore:rules
@@ -80,3 +83,4 @@ Only required for new Firebase project setup or configuration changes.
 firebase login
 firebase init
 ```
+
