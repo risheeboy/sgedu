@@ -60,16 +60,16 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
         _syllabusFiles = [
           'Biology.md',
           'Chemistry.md',
-          'China-Studies-in-English.md',
+          'China Studies in English.md',
           'Computing.md',
           'Economics.md',
-          'Further-Mathematics.md',
+          'Further Mathematics.md',
           'Geography.md',
           'History.md',
-          'Literature-in-English.md',
+          'Literature in English.md',
           'Mathematics.md',
           'Physics.md',
-          'Principles-of-Accounting.md'
+          'Principles of Accounting.md'
         ];
       } else if (_selectedSyllabus == 'Singapore GCE O-Level') {
         _syllabusFiles = [

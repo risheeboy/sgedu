@@ -104,7 +104,7 @@ export const generateQuestions = onDocumentWritten(
       // Read syllabus markdown content
       const syllabusMarkdown = await readSyllabusMarkdown(data.syllabus, data.subject);
 
-      const singaporeEducationPrompt = `You are an expert education question paper setter, specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 20 challenging questions about ${data.subject} for ${data.syllabus} ${data.topic ? `focusing on ${data.topic}` : ''} in Singapore.
+      const singaporeEducationPrompt = `You are an expert education question paper setter, specializing in the Singapore education system. Use the search tool to find real past exam questions and educational resources, then generate 10 challenging questions about ${data.subject} for ${data.syllabus} ${data.topic ? `focusing on ${data.topic}` : ''} in Singapore.
 
 Syllabus Details for Reference:
 ${syllabusMarkdown}
