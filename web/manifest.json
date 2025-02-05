@@ -1,5 +1,5 @@
 {
-    "name": "Education App",
+    "name": "Edu🦦Thingz",
     "short_name": "edu",
     "start_url": ".",
     "display": "standalone",
@@ -8,5 +8,11 @@
     "description": "An educational app for generating questions",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
-    "icons": []
+    "icons": [
+      {
+        "src": "assets/images/icon.png",
+        "sizes": "192x192 512x512",
+        "type": "image/png"
+      }
+    ]
 }
