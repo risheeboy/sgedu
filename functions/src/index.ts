@@ -176,7 +176,6 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
       await afterData.ref.update({
         questions: JSON.stringify(parsedQuestions),
         status: "completed",
-        rawResponse: responseContent, // TODO remove, when not required for debugging
         updatedAt: admin.firestore.FieldValue.serverTimestamp(), 
       });
 
