@@ -1,4 +1,5 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
+//import { DocumentReference } from '@google-cloud/firestore';
 import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { OpenAI } from 'openai';
@@ -9,16 +10,30 @@ import * as fs from 'fs/promises';
 admin.initializeApp();
 
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
-// Define the QuestionDoc interface
-interface QuestionDoc {
+// Define the RequestDoc interface
+interface RequestDoc {
   subject: string;
   syllabus: string;
   topic?: string;
   status: string;
-  questions?: string;
   error?: string;
   timestamp: admin.firestore.Timestamp;
 }
+
+/*
+// Define the QuestionDoc interface
+interface QuestionDoc {
+  question: string;
+  type: string;
+  explanation: string;
+  correctAnswer: string;
+  subject: string;
+  syllabus: string;
+  request: DocumentReference;
+  topics: string[];
+  timestamp: admin.firestore.Timestamp;
+}
+*/
 
 // Function to validate questions JSON structure
 function validateQuestionsJSON(data: any): boolean {
@@ -39,7 +54,7 @@ function validateQuestionJSON(q: any): boolean {
 // Export the generateQuestions function
 export const generateQuestions = onDocumentWritten(
   {
-    document: "questions/{questionId}",
+    document: "requests/{requestId}",
     region: "asia-southeast1",
     secrets: [OPENAI_API_KEY]
   },
@@ -49,7 +64,7 @@ export const generateQuestions = onDocumentWritten(
     const afterData = event.data.after;
     if (!afterData) return;
     
-    const data = afterData.data() as QuestionDoc;
+    const data = afterData.data() as RequestDoc;
 
     // Only process documents with 'pending' status
     if (data.status !== "pending") {
@@ -172,11 +187,31 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
         throw new Error(`Invalid JSON response from OpenAI API: ${errorMessage}`);
       }
 
-      // Update the document with parsed questions
+      console.log("Parsed questions length:", parsedQuestions.questions.length);
+      // Create new questions documents for all the questions and save in questions collection
+      const promises = parsedQuestions.questions.map((q: any, index: number) => {
+        console.log(`Creating question ${index + 1}: ${q.question}`);
+
+        const questionDocRef = admin.firestore().collection('questions').doc();
+        return questionDocRef.set({
+          question: q.question,
+          type: q.type,
+          explanation: q.explanation,
+          correctAnswer: q.correctAnswer,
+          subject: data.subject,
+          syllabus: data.syllabus,
+          request: afterData.ref,
+          topics: [],// TODO: Generate topics
+          timestamp: admin.firestore.Timestamp.now()
+        });
+      });
+      await Promise.all(promises);
+      console.log("Created Questions");
+      
+      // Update the request document
       await afterData.ref.update({
-        questions: JSON.stringify(parsedQuestions),
         status: "completed",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(), 
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return null;

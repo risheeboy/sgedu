@@ -1,11 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read and write to the questions collection
-    match /questions/{questionId} {
+    match /requests/{requestId} {
       allow read: if true; // request.auth != null;
       allow create: if true; // request.auth != null;
-      allow update: if false; // Only Cloud Functions can update questions
+      allow update: if false;
+      allow delete: if false;
+    }
+    match /questions/{questionId} {
+      allow read: if true;
+      allow create: if false;
+      allow update: if false;
       allow delete: if false;
     }
 

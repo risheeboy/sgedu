@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Question {
@@ -6,12 +5,20 @@ class Question {
   final String type;
   final String explanation;
   final String correctAnswer;
+  final String subject;
+  final String syllabus;
+  final DocumentReference request;
+  final List<String>? topics;
 
   Question({
     required this.question,
     required this.type,
     required this.explanation,
     required this.correctAnswer,
+    required this.subject,
+    required this.syllabus,
+    required this.request,
+    this.topics,
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
@@ -20,6 +27,10 @@ class Question {
       type: json['type'] as String,
       explanation: json['explanation'] as String,
       correctAnswer: json['correctAnswer'] as String,
+      subject: json['subject'] as String,
+      syllabus: json['syllabus'] as String,
+      request: json['request'] as DocumentReference,
+      topics: (json['topics'] as List<dynamic>).cast<String>(),
     );
   }
 }
@@ -33,8 +44,8 @@ class QuestionService {
     String? topic,
   }) async {
     try {
-      // Create a document in the questions collection
-      DocumentReference docRef = await _firestore.collection('questions').add({
+      // Create a document in the requests collection
+      DocumentReference docRef = await _firestore.collection('requests').add({
         'subject': subject,
         'syllabus': syllabus,
         'topic': topic,
@@ -44,7 +55,7 @@ class QuestionService {
 
       // Wait for the Cloud Function to process and update the document
       DocumentSnapshot snapshot = await docRef.get();
-      while (snapshot.get('status') == 'pending') {
+      while (snapshot.get('status') == 'pending') { // TODO : Add timeout
         await Future.delayed(const Duration(seconds: 1));
         snapshot = await docRef.get();
       }
@@ -54,10 +65,19 @@ class QuestionService {
       }
 
       try {
-        final questionsJson = jsonDecode(snapshot.get('questions') as String);
-        return (questionsJson['questions'] as List)
-            .map((q) => Question.fromJson(q as Map<String, dynamic>))
-            .toList();
+        // New query from collection questions, with reference to the request document
+        QuerySnapshot snapshot = await _firestore
+            .collection('questions')
+            .where('request', isEqualTo: docRef)
+            .get();
+
+        List<Question> questions = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return Question.fromJson(data);
+        }).toList();
+
+        // Return the list of questions
+        return questions;
       } catch (e) {
         print('Raw questions JSON: ${snapshot.get('questions')}');
         print('JSON Decode Error: $e');
