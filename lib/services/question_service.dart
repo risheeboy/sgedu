@@ -53,10 +53,16 @@ class QuestionService {
         throw Exception(snapshot.get('error'));
       }
 
-      final questionsJson = jsonDecode(snapshot.get('questions') as String);
-      return (questionsJson['questions'] as List)
-          .map((q) => Question.fromJson(q as Map<String, dynamic>))
-          .toList();
+      try {
+        final questionsJson = jsonDecode(snapshot.get('questions') as String);
+        return (questionsJson['questions'] as List)
+            .map((q) => Question.fromJson(q as Map<String, dynamic>))
+            .toList();
+      } catch (e) {
+        print('Raw questions JSON: ${snapshot.get('questions')}');
+        print('JSON Decode Error: $e');
+        throw Exception('Failed to parse questions: $e');
+      }
     } catch (e) {
       throw Exception('Failed to generate questions: $e');
     }

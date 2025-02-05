@@ -1,20 +1,15 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
-import * as functions from 'firebase-functions';
 import { OpenAI } from 'openai';
-import Ajv from 'ajv';
-const ajv = new Ajv();
 
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
 admin.initializeApp();
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: functions.config().openai.key
-});
-
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+// Define the QuestionDoc interface
 interface QuestionDoc {
   subject: string;
   syllabus: string;
@@ -25,41 +20,28 @@ interface QuestionDoc {
   timestamp: admin.firestore.Timestamp;
 }
 
-const validateQuestions = ajv.compile({
-  type: 'object',
-  properties: {
-    questions: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          question: { type: 'string' },
-          type: { type: 'string' },
-          explanation: { type: 'string' },
-          correctAnswer: { type: 'string' }
-        },
-        required: ['question', 'correctAnswer', 'explanation', 'type']
-      }
-    }
-  },
-  required: ['questions']
-});
+// Function to validate questions JSON structure
+function validateQuestionsJSON(data: any): boolean {
+  console.log('Validating questions structure');
+  if (!data?.questions || !Array.isArray(data.questions)) {
+    console.error('Missing questions array');
+    return false;
+  }
+  return true;
+}
 
-const validateQuestion = ajv.compile({
-  type: 'object',
-  properties: {
-    question: { type: 'string' },
-    type: { type: 'string' },
-    explanation: { type: 'string' },
-    correctAnswer: { type: 'string' }
-  },
-  required: ['question', 'correctAnswer', 'explanation', 'type']
-});
+// Function to validate question JSON structure
+function validateQuestionJSON(q: any): boolean {
+  const required = ['question', 'type', 'explanation', 'correctAnswer'];
+  return required.every(field => q.hasOwnProperty(field));
+}
 
+// Export the generateQuestions function
 export const generateQuestions = onDocumentWritten(
   {
     document: "questions/{questionId}",
-    region: "asia-southeast1"
+    region: "asia-southeast1",
+    secrets: [OPENAI_API_KEY]
   },
   async (event) => {
     if (!event.data) return;
@@ -75,6 +57,11 @@ export const generateQuestions = onDocumentWritten(
     }
 
     try {
+      const openaiApiKey = process.env.OPENAI_API_KEY || OPENAI_API_KEY.value();
+      const openai = new OpenAI({
+        apiKey: openaiApiKey
+      });
+
       // Function to read syllabus markdown file
       const readSyllabusMarkdown = async (syllabus: string, subject: string): Promise<string> => {
         // Map full syllabus names to directory abbreviations
@@ -160,14 +147,14 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
         console.log("Parsed questions:", JSON.stringify(parsedQuestions, null, 2));
         
         // Validate the structure
-        if (!validateQuestions(parsedQuestions)) {
+        if (!validateQuestionsJSON(parsedQuestions)) {
           console.error("Invalid structure:", parsedQuestions);
           throw new Error("Invalid response structure: missing questions array");
         }
 
         // Validate each question object
         parsedQuestions.questions.forEach((q: any, index: number) => {
-          if (!validateQuestion(q)) {
+          if (!validateQuestionJSON(q)) {
             console.error(`Invalid question ${index + 1}:`, q);
             throw new Error(`Question ${index + 1} is missing required fields`);
           }
@@ -189,6 +176,7 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
       await afterData.ref.update({
         questions: JSON.stringify(parsedQuestions),
         status: "completed",
+        rawResponse: responseContent, // TODO remove, when not required for debugging
         updatedAt: admin.firestore.FieldValue.serverTimestamp(), 
       });
 
