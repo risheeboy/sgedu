@@ -293,7 +293,25 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
               const SizedBox(height: 16),
 
               ElevatedButton(
-                onPressed: _isLoading ? null : _generateQuestions,
+                onPressed: () {
+                  if (FirebaseAuth.instance.currentUser == null) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Login Required'),
+                        content: const Text('Please login to generate questions.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    _generateQuestions();
+                  }
+                },
                 child: _isLoading
                     ? const SizedBox(
                         height: 20,
