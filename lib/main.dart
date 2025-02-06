@@ -18,6 +18,14 @@ Future<void> signInWithGoogle() async {
   }
 }
 
+Future<void> signOut() async {
+  try {
+    await FirebaseAuth.instance.signOut();
+  } catch (error) {
+    print('Sign-out error: $error');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -42,10 +50,29 @@ class MyApp extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Edu🦦Thingz'),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.login),
-              onPressed: signInWithGoogle,
-              tooltip: 'Login with Google',
+            StreamBuilder<User?>(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.active) {
+                  final user = snapshot.data;
+                  if (user != null) {
+                    return IconButton(
+                      icon: const Icon(Icons.logout),
+                      tooltip: 'Logout',
+                      onPressed: signOut,
+                    );
+                  } else {
+                    return IconButton(
+                      icon: const Icon(Icons.login),
+                      tooltip: 'Login with Google',
+                      onPressed: signInWithGoogle,
+                    );
+                  }
+                }
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              },
             ),
           ],
         ),
