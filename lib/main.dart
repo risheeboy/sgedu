@@ -4,6 +4,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'firebase_options.dart';
 import 'services/question_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+Future<void> signInWithGoogle() async {
+  final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+  googleProvider.setCustomParameters({
+    'client_id': '350183278922-mjn0ne7o52dqumoc610s552s5at1t35s.apps.googleusercontent.com'
+  });
+  try {
+    await FirebaseAuth.instance.signInWithPopup(googleProvider);
+  } catch (error) {
+    print('Google sign-in error: $error');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +38,19 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
-      home: const QuestionGeneratorPage(),
+      home: Scaffold(
+        appBar: AppBar(
+          title: const Text('Edu🦦Thingz'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.login),
+              onPressed: signInWithGoogle,
+              tooltip: 'Login with Google',
+            ),
+          ],
+        ),
+        body: const QuestionGeneratorPage(),
+      ),
     );
   }
 }
@@ -136,177 +161,172 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Question Generator'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Syllabus Dropdown
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Syllabus Dropdown
+              DropdownButtonFormField<String>(
+                value: _selectedSyllabus,
+                decoration: const InputDecoration(
+                  labelText: 'Syllabus',
+                  border: OutlineInputBorder(),
+                ),
+                items: _syllabusOptions
+                    .map((syllabus) => DropdownMenuItem(
+                          value: syllabus,
+                          child: Text(syllabus),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedSyllabus = value!;
+                    _updateSyllabusFiles();
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // Subject Dropdown (only show when syllabus is selected)
+              if (_syllabusFiles != null) 
                 DropdownButtonFormField<String>(
-                  value: _selectedSyllabus,
+                  value: _selectedSubject,
                   decoration: const InputDecoration(
-                    labelText: 'Syllabus',
+                    labelText: 'Subject',
                     border: OutlineInputBorder(),
                   ),
-                  items: _syllabusOptions
-                      .map((syllabus) => DropdownMenuItem(
-                            value: syllabus,
-                            child: Text(syllabus),
+                  items: _syllabusFiles!
+                      .map((file) => DropdownMenuItem(
+                            value: file.replaceAll('.md', ''),
+                            child: Text(file.replaceAll('.md', '')),
                           ))
                       .toList(),
                   onChanged: (value) {
                     setState(() {
-                      _selectedSyllabus = value!;
-                      _updateSyllabusFiles();
+                      _selectedSubject = value;
                     });
                   },
                 ),
-                const SizedBox(height: 16),
-                
-                // Subject Dropdown (only show when syllabus is selected)
-                if (_syllabusFiles != null) 
-                  DropdownButtonFormField<String>(
-                    value: _selectedSubject,
-                    decoration: const InputDecoration(
-                      labelText: 'Subject',
-                      border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+
+              // Optional Topic Input
+              TextField(
+                controller: _topicController,
+                decoration: const InputDecoration(
+                  labelText: 'Topic (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              ElevatedButton(
+                onPressed: _isLoading ? null : _generateQuestions,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Generate Questions'),
+              ),
+              if (_questions != null) ...[
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Generated Questions:',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    items: _syllabusFiles!
-                        .map((file) => DropdownMenuItem(
-                              value: file.replaceAll('.md', ''),
-                              child: Text(file.replaceAll('.md', '')),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedSubject = value;
-                      });
-                    },
-                  ),
-                const SizedBox(height: 16),
-
-                // Optional Topic Input
-                TextField(
-                  controller: _topicController,
-                  decoration: const InputDecoration(
-                    labelText: 'Topic (Optional)',
-                    border: OutlineInputBorder(),
-                  ),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showAnswers = !_showAnswers;
+                        });
+                      },
+                      icon: Icon(_showAnswers
+                          ? Icons.visibility_off
+                          : Icons.visibility),
+                      label:
+                          Text(_showAnswers ? 'Hide Answers' : 'Show Answers'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _generateQuestions,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Generate Questions'),
-                ),
-                if (_questions != null) ...[
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Generated Questions:',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _showAnswers = !_showAnswers;
-                          });
-                        },
-                        icon: Icon(_showAnswers
-                            ? Icons.visibility_off
-                            : Icons.visibility),
-                        label:
-                            Text(_showAnswers ? 'Hide Answers' : 'Show Answers'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _questions!.length,
-                      itemBuilder: (context, index) {
-                        final question = _questions![index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _questions!.length,
+                    itemBuilder: (context, index) {
+                      final question = _questions![index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Question ${index + 1}:',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                question.question,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              if (_showAnswers) ...[
+                                const SizedBox(height: 16),
+                                const Divider(),
+                                const SizedBox(height: 8),
                                 Text(
-                                  'Question ${index + 1}:',
-                                  style: const TextStyle(
+                                  'Answer:',
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
+                                    color: Colors.green[700],
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  question.question,
-                                  style: const TextStyle(fontSize: 16),
+                                MarkdownBody(
+                                  data: question.correctAnswer,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: const TextStyle(fontSize: 14.0),
+                                  ),
                                 ),
-                                if (_showAnswers) ...[
-                                  const SizedBox(height: 16),
-                                  const Divider(),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Answer:',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green[700],
-                                    ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Explanation:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange[800],
                                   ),
-                                  const SizedBox(height: 8),
-                                  MarkdownBody(
-                                    data: question.correctAnswer,
-                                    styleSheet: MarkdownStyleSheet(
-                                      p: const TextStyle(fontSize: 14.0),
-                                    ),
+                                ),
+                                const SizedBox(height: 8),
+                                MarkdownBody(
+                                  data: question.explanation,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: const TextStyle(fontSize: 14.0),
                                   ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Explanation:',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange[800],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  MarkdownBody(
-                                    data: question.explanation,
-                                    styleSheet: MarkdownStyleSheet(
-                                      p: const TextStyle(fontSize: 14.0),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ],
-                            ),
+                            ],
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
