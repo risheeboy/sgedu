@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class Question {
   final String question;
@@ -45,13 +46,20 @@ class QuestionService {
   }) async {
     try {
       // Create a document in the requests collection
-      DocumentReference docRef = await _firestore.collection('requests').add({
+      final data = {
         'subject': subject,
         'syllabus': syllabus,
         'topic': topic,
         'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
-      });
+      };
+
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        data['userId'] = currentUser.uid;
+      }
+
+      DocumentReference docRef = await _firestore.collection('requests').add(data);
 
       // Wait for the Cloud Function to process and update the document
       DocumentSnapshot snapshot = await docRef.get();
