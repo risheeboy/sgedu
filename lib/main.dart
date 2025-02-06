@@ -99,6 +99,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   bool _isLoading = false;
   bool _showAnswers = false;
   List<Question>? _questions;
+  List<Question>? _existingQuestions;
 
   // Add syllabus options
   final List<String> _syllabusOptions = [
@@ -186,6 +187,47 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
     }
   }
 
+  Future<void> _getExistingQuestions() async {
+    // Validate inputs
+    if (_selectedSubject == null ||
+        _selectedSyllabus == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a syllabus and subject'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _existingQuestions = null;
+    });
+
+    try {
+      final questions = await _questionService.getQuestions(
+        _selectedSyllabus!,
+        _selectedSubject!,
+        _topicController.text.isNotEmpty ? _topicController.text : null,
+      );
+      setState(() {
+        _existingQuestions = questions;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error getting existing questions: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -260,6 +302,16 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                       )
                     : const Text('Generate Questions'),
               ),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _getExistingQuestions,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Get Existing Questions'),
+              ),
               if (_questions != null) ...[
                 const SizedBox(height: 24),
                 Row(
@@ -292,6 +344,99 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                     itemCount: _questions!.length,
                     itemBuilder: (context, index) {
                       final question = _questions![index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Question ${index + 1}:',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                question.question,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              if (_showAnswers) ...[
+                                const SizedBox(height: 16),
+                                const Divider(),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Answer:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                MarkdownBody(
+                                  data: question.correctAnswer,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: const TextStyle(fontSize: 14.0),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Explanation:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange[800],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                MarkdownBody(
+                                  data: question.explanation,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: const TextStyle(fontSize: 14.0),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              if (_existingQuestions != null) ...[
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Existing Questions:',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showAnswers = !_showAnswers;
+                        });
+                      },
+                      icon: Icon(_showAnswers
+                          ? Icons.visibility_off
+                          : Icons.visibility),
+                      label:
+                          Text(_showAnswers ? 'Hide Answers' : 'Show Answers'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _existingQuestions!.length,
+                    itemBuilder: (context, index) {
+                      final question = _existingQuestions![index];
                       return Card(
                         margin: const EdgeInsets.only(bottom: 16),
                         child: Padding(

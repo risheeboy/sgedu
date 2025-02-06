@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class Question {
   final String question;
@@ -8,7 +9,7 @@ class Question {
   final String correctAnswer;
   final String subject;
   final String syllabus;
-  final DocumentReference request;
+  final DocumentReference? request;
   final List<String>? topics;
 
   Question({
@@ -18,7 +19,7 @@ class Question {
     required this.correctAnswer,
     required this.subject,
     required this.syllabus,
-    required this.request,
+    this.request,
     this.topics,
   });
 
@@ -32,6 +33,19 @@ class Question {
       syllabus: json['syllabus'] as String,
       request: json['request'] as DocumentReference,
       topics: (json['topics'] as List<dynamic>).cast<String>(),
+    );
+  }
+
+  factory Question.fromMap(Map<String, dynamic> data) {
+    return Question(
+      question: data['question'] as String,
+      type: '',
+      explanation: data['explanation'] as String,
+      correctAnswer: data['correctAnswer'] as String,
+      subject: '',
+      syllabus: '',
+      request: null,
+      topics: null,
     );
   }
 }
@@ -93,6 +107,23 @@ class QuestionService {
       }
     } catch (e) {
       throw Exception('Failed to generate questions: $e');
+    }
+  }
+
+  Future<List<Question>> getQuestions(String syllabus, String subject, [String? topic]) async {
+    try {
+      print("Getting questions: $syllabus, $subject, $topic");
+      Query query = FirebaseFirestore.instance.collection('questions')
+          .where('syllabus', isEqualTo: syllabus)
+          .where('subject', isEqualTo: subject);
+      if (topic != null) {
+        query = query.where('topic', isEqualTo: topic);
+      }
+
+      QuerySnapshot snapshot = await query.get();
+      return snapshot.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception('Error retrieving questions from Firestore: $e');
     }
   }
 }
