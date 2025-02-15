@@ -145,10 +145,12 @@ class _QuestionCardState extends State<QuestionCard> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.thumb_up, color: Colors.green),
+                      iconSize: 12,
                       onPressed: () => _submitFeedback('positive'),
                     ),
                     IconButton(
                       icon: const Icon(Icons.thumb_down, color: Colors.red),
+                      iconSize: 12,
                       onPressed: _showNegativeFeedbackOptions,
                     ),
                   ],
