@@ -1,14 +1,16 @@
+import 'dart:math'; // Import dart:math for the min function
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:html' as html;
+import 'package:flutter/services.dart';
+import 'widgets/question_card.dart';
+import 'services/question_service.dart'; // Ensure Question model is accessible
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'firebase_options.dart';
-import 'services/question_service.dart';
 import 'services/user_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:html' as html;
-import 'package:flutter/services.dart';
-import 'widgets/question_card.dart';
 
 Future<void> signInWithGoogle() async {
   final GoogleAuthProvider googleProvider = GoogleAuthProvider();
@@ -111,6 +113,7 @@ class _QuestionPageState extends State<QuestionPage> {
   List<Question>? _existingQuestions;
   int _currentPage = 1;
   int _totalPages = 1;
+  int _pageSize = 1;
 
   // Add syllabus options
   final List<String> _syllabusOptions = [
@@ -239,8 +242,7 @@ class _QuestionPageState extends State<QuestionPage> {
 
   Future<void> _getExistingQuestions({int? page}) async {
     // Validate inputs
-    if (_selectedSubject == null ||
-        _selectedSyllabus == null) {
+    if (_selectedSubject == null || _selectedSyllabus == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select a syllabus and subject'),
@@ -250,32 +252,85 @@ class _QuestionPageState extends State<QuestionPage> {
       return;
     }
 
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Fetch IDs of questions with existing feedback
+    final feedbackQuery = await FirebaseFirestore.instance
+        .collection('feedbacks')
+        .where('userId', isEqualTo: user.uid)
+        .get();
+
+    final List<String> excludedQuestionIds = feedbackQuery.docs
+        .map((doc) => doc['questionId'] as String)
+        .where((id) => id.isNotEmpty) // Filter out empty IDs
+        .toList();
+
+    // Fetch questions, excluding those with existing feedback
+    Query<Map<String, dynamic>> questionsQuery = FirebaseFirestore.instance
+        .collection('questions')
+        .where('syllabus', isEqualTo: _selectedSyllabus)
+        .where('subject', isEqualTo: _selectedSubject);
+
+    if (excludedQuestionIds.isNotEmpty) {
+      // Apply not-in filter only if we have valid IDs to exclude
+      if (excludedQuestionIds.length <= 10) {
+        questionsQuery = questionsQuery.where(FieldPath.documentId, whereNotIn: excludedQuestionIds);
+      } else {
+        // Handle more than 10 excluded IDs (split into multiple queries)
+        List<List<String>> chunks = [];
+        for (var i = 0; i < excludedQuestionIds.length; i += 10) {
+          chunks.add(excludedQuestionIds.sublist(i, min(i + 10, excludedQuestionIds.length)));
+        }
+
+        List<Question> allQuestions = [];
+        for (final chunk in chunks) {
+          if (chunk.isNotEmpty) { // Only query if we have valid IDs in the chunk
+            final chunkQuery = await FirebaseFirestore.instance
+                .collection('questions')
+                .where('syllabus', isEqualTo: _selectedSyllabus)
+                .where('subject', isEqualTo: _selectedSubject)
+                .where(FieldPath.documentId, whereNotIn: chunk)
+                .get();
+            allQuestions.addAll(chunkQuery.docs.map((doc) {
+              final data = doc.data();
+              data['id'] = doc.id; // Include the document ID
+              return Question.fromJson(data);
+            }).toList());
+          }
+        }
+
+        setState(() {
+          _isLoading = false;
+          _existingQuestions = allQuestions;
+        });
+        return;
+      }
+    }
+
+    if (page != null) {
+      questionsQuery = questionsQuery.startAfter([page * _pageSize]).limit(_pageSize);
+    } else {
+      questionsQuery = questionsQuery.limit(_pageSize);
+    }
+
     setState(() {
       _isLoading = true;
-      _existingQuestions = null;
     });
 
     try {
-      final questions = await _questionService.getQuestions(
-        syllabus: _selectedSyllabus!,
-        subject: _selectedSubject!,
-        topic: _topicController.text.isNotEmpty ? _topicController.text : null,
-        limit: 1,
-        page: page ?? _currentPage
-      );
-      
+      final snapshot = await questionsQuery.get();
       setState(() {
-        _existingQuestions = questions;
-        _generatedQuestions = null;
-        _totalPages = questions.isNotEmpty ? _currentPage + 1 : _totalPages;
+        _existingQuestions = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id; // Include the document ID
+          return Question.fromJson(data);
+        }).toList(); 
       });
-      if (questions.isNotEmpty && questions[0].id != null) {
-        html.window.history.replaceState(null, '', '?questionId=${questions[0].id}');
-      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error getting existing questions: $e'),
+          content: Text('Failed to load questions: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
