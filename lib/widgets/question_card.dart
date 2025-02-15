@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/feedback_service.dart';
 
 class QuestionCard extends StatefulWidget {
   final dynamic question;
@@ -13,6 +15,112 @@ class QuestionCard extends StatefulWidget {
 
 class _QuestionCardState extends State<QuestionCard> {
   bool _showAnswers = false;
+  bool _showFeedbackOptions = false;
+  Set<String> _selectedReasons = {};
+  final TextEditingController _feedbackCommentController = TextEditingController();
+
+  void _submitFeedback(String type, {List<String>? reasons, String? comment}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FeedbackService.submitFeedback(
+      questionId: widget.question.id ?? '',
+      userId: user.uid,
+      type: type,
+      reasons: reasons,
+      comment: comment,
+    );
+  }
+
+  void _showNegativeFeedbackOptions() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('What was wrong?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CheckboxListTile(
+                  title: const Text('Incorrect answer'),
+                  value: _selectedReasons.contains('incorrect'),
+                  onChanged: (v) => setState(() {
+                    v! ? _selectedReasons.add('incorrect') : _selectedReasons.remove('incorrect');
+                  }),
+                ),
+                CheckboxListTile(
+                  title: const Text('Incoherent question'),
+                  value: _selectedReasons.contains('incoherent'),
+                  onChanged: (v) => setState(() {
+                    v! ? _selectedReasons.add('incoherent') : _selectedReasons.remove('incoherent');
+                  }),
+                ),
+                CheckboxListTile(
+                  title: const Text('Out of syllabus'),
+                  value: _selectedReasons.contains('syllabus'),
+                  onChanged: (v) => setState(() {
+                    v! ? _selectedReasons.add('syllabus') : _selectedReasons.remove('syllabus');
+                  }),
+                ),
+                CheckboxListTile(
+                  title: const Text('Other'),
+                  value: _selectedReasons.contains('other'),
+                  onChanged: (v) => setState(() {
+                    v! ? _selectedReasons.add('other') : _selectedReasons.remove('other');
+                  }),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  if (_selectedReasons.contains('other')) {
+                    final comment = await showDialog<String>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Additional comments'),
+                        content: TextField(
+                          controller: _feedbackCommentController,
+                          decoration: const InputDecoration(
+                            hintText: 'Please explain the issue...',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, _feedbackCommentController.text),
+                            child: const Text('Submit'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  _submitFeedback(
+                    'negative',
+                    reasons: _selectedReasons.toList(),
+                    comment: _feedbackCommentController.text,
+                  );
+                  _selectedReasons.clear();
+                  _feedbackCommentController.clear();
+                },
+                child: const Text('Submit'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,12 +131,29 @@ class _QuestionCardState extends State<QuestionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Question ${widget.index + 1}:',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Question:',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.thumb_up, color: Colors.green),
+                      onPressed: () => _submitFeedback('positive'),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.thumb_down, color: Colors.red),
+                      onPressed: _showNegativeFeedbackOptions,
+                    ),
+                  ],
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -44,7 +169,7 @@ class _QuestionCardState extends State<QuestionCard> {
                   });
                 },
                 icon: Icon(_showAnswers ? Icons.visibility_off : Icons.visibility),
-                label: Text(_showAnswers ? 'Hide Answers' : 'Show Answers'),
+                label: Text(_showAnswers ? 'Hide Answer' : 'Show Answer'),
               ),
             ),
             if (_showAnswers) ...[
