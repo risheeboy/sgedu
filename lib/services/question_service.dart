@@ -125,6 +125,9 @@ class QuestionService {
         query = query.where('topic', isEqualTo: topic);
       }
 
+      // Add orderBy clauses for all fields used in startAfter
+      query = query.orderBy('timestamp', descending: true);
+      
       // Calculate skip based on page number and limit
       int skip = (page - 1) * limit;
       
@@ -132,7 +135,8 @@ class QuestionService {
       if (skip > 0) {
         QuerySnapshot skipDocs = await query.limit(skip).get();
         if (skipDocs.docs.isNotEmpty) {
-          query = query.startAfter([skipDocs.docs.last]);
+          DocumentSnapshot lastDoc = skipDocs.docs.last;
+          query = query.startAfter([lastDoc.get('timestamp')]);
         }
       }
 

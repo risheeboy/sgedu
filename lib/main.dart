@@ -100,6 +100,8 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   bool _showAnswers = false;
   List<Question>? _questions;
   List<Question>? _existingQuestions;
+  int _currentPage = 1;
+  int _totalPages = 1;
 
   // Add syllabus options
   final List<String> _syllabusOptions = [
@@ -187,7 +189,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
     }
   }
 
-  Future<void> _getExistingQuestions() async {
+  Future<void> _getExistingQuestions({int? page}) async {
     // Validate inputs
     if (_selectedSubject == null ||
         _selectedSyllabus == null) {
@@ -210,9 +212,13 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
         syllabus: _selectedSyllabus!,
         subject: _selectedSubject!,
         topic: _topicController.text.isNotEmpty ? _topicController.text : null,
+        limit: 1,
+        page: page ?? _currentPage
       );
+      
       setState(() {
         _existingQuestions = questions;
+        _totalPages = questions.isNotEmpty ? _currentPage + 1 : _totalPages;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -423,7 +429,34 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                   ),
                 ),
               ],
-              if (_existingQuestions != null && _questions == null) ...[
+              if (_existingQuestions != null && _existingQuestions!.isNotEmpty)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text('Question $_currentPage', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(width: 20),
+                    ElevatedButton(
+                      onPressed: _currentPage < _totalPages
+                          ? () {
+                              setState(() => _currentPage += 1);
+                              _getExistingQuestions();
+                            }
+                          : null,
+                      child: Text('Next →'),
+                    ),
+                    SizedBox(width: 20),
+                    ElevatedButton(
+                      onPressed: _currentPage > 1
+                          ? () {
+                              setState(() => _currentPage -= 1);
+                              _getExistingQuestions();
+                            }
+                          : null,
+                      child: Text('← Previous'),
+                    ),
+                  ],
+                ),
+              if (_existingQuestions != null) ...[
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
