@@ -42,11 +42,11 @@ class Question {
     return Question(
       id: id,
       question: data['question'] as String,
-      type: '',
+      type: data['type'] as String? ?? '',
       explanation: data['explanation'] as String,
       correctAnswer: data['correctAnswer'] as String,
-      subject: '',
-      syllabus: '',
+      subject: data['subject'] as String,
+      syllabus: data['syllabus'] as String,
       request: null,
       topics: null,
     );
@@ -151,6 +151,18 @@ class QuestionService {
       return snapshot.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>, id: doc.id)).toList();
     } catch (e) {
       throw Exception('Error retrieving questions from Firestore: $e');
+    }
+  }
+
+  Future<Question> getQuestionById(String id) async {
+    try {
+      DocumentSnapshot doc = await _firestore.collection('questions').doc(id).get();
+      if (doc.exists) {
+        return Question.fromMap(doc.data() as Map<String, dynamic>, id: doc.id);
+      }
+      throw Exception('Question not found');
+    } catch (e) {
+      throw Exception('Error fetching question: $e');
     }
   }
 }

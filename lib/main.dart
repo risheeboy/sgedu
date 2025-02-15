@@ -144,6 +144,42 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleDeepLink());
+  }
+
+  void _handleDeepLink() {
+    final uri = Uri.parse(html.window.location.href);
+    final questionId = uri.queryParameters['questionId'];
+    if (questionId != null && questionId.isNotEmpty) {
+      _loadQuestionById(questionId);
+    }
+  }
+
+  Future<void> _loadQuestionById(String id) async {
+    setState(() => _isLoading = true);
+    try {
+      final question = await _questionService.getQuestionById(id);
+      setState(() {
+        _selectedSyllabus = question.syllabus;
+        _selectedSubject = question.subject;
+        _existingQuestions = [question];
+      });
+      _updateSyllabusFiles();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading question: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   void dispose() {
     _subjectController.dispose();
     _topicController.dispose();
