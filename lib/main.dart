@@ -318,55 +318,113 @@ class _QuestionPageState extends State<QuestionPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  Flexible(
-                    child: DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      value: _selectedSyllabus,
-                      decoration: const InputDecoration(
-                        labelText: 'Syllabus',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _syllabusOptions
-                          .map((syllabus) => DropdownMenuItem(
-                                value: syllabus,
-                                child: Text(syllabus),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedSyllabus = value!;
-                          _updateSyllabusFiles();
-                        });
-                      },
-                    ),
-                  ),
-                  if (_syllabusFiles != null)
-                    Flexible(
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        value: _selectedSubject,
-                        decoration: const InputDecoration(
-                          labelText: 'Subject',
-                          border: OutlineInputBorder(),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth > 600) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: _selectedSyllabus,
+                            decoration: const InputDecoration(
+                              labelText: 'Syllabus',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: _syllabusOptions
+                                .map((syllabus) => DropdownMenuItem(
+                                      value: syllabus,
+                                      child: Text(syllabus),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedSyllabus = value!;
+                                _updateSyllabusFiles();
+                              });
+                            },
+                          ),
                         ),
-                        items: _syllabusFiles!
-                            .map((file) => DropdownMenuItem(
-                                  value: file.replaceAll('.md', ''),
-                                  child: Text(file.replaceAll('.md', '')),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedSubject = value;
-                          });
-                        },
-                      ),
-                    ),
-                ],
+                        const SizedBox(width: 16),
+                        if (_syllabusFiles != null)
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              value: _selectedSubject,
+                              decoration: const InputDecoration(
+                                labelText: 'Subject',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _syllabusFiles!
+                                  .map((file) => DropdownMenuItem(
+                                        value: file.replaceAll('.md', ''),
+                                        child: Text(file.replaceAll('.md', '')),
+                                      ))
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedSubject = value;
+                                });
+                                if (value != null) {
+                                  _getExistingQuestions();
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: _selectedSyllabus,
+                          decoration: const InputDecoration(
+                            labelText: 'Syllabus',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: _syllabusOptions
+                              .map((syllabus) => DropdownMenuItem(
+                                    value: syllabus,
+                                    child: Text(syllabus),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedSyllabus = value!;
+                              _updateSyllabusFiles();
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        if (_syllabusFiles != null)
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: _selectedSubject,
+                            decoration: const InputDecoration(
+                              labelText: 'Subject',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: _syllabusFiles!
+                                .map((file) => DropdownMenuItem(
+                                      value: file.replaceAll('.md', ''),
+                                      child: Text(file.replaceAll('.md', '')),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedSubject = value;
+                              });
+                              if (value != null) {
+                                _getExistingQuestions();
+                              }
+                            },
+                          ),
+                      ],
+                    );
+                  }
+                },
               ),
               const SizedBox(height: 16),
 
@@ -428,7 +486,7 @@ class _QuestionPageState extends State<QuestionPage> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Generate 10 Questions'),
+                    : const Text('Generate 10 More Questions'),
               ),
               if (_generatedQuestions != null || _existingQuestions != null) ...[
                 const SizedBox(height: 24),
