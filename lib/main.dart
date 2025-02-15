@@ -423,7 +423,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                   ),
                 ),
               ],
-              if (_existingQuestions != null) ...[
+              if (_existingQuestions != null && _questions == null) ...[
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
