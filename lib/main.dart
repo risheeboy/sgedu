@@ -463,24 +463,6 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                     ),
                   ],
                 ),
-              if (_existingQuestions != null && _existingQuestions!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text('Shareable Link: ${html.window.location.href}')),
-                      IconButton(
-                        icon: const Icon(Icons.copy),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: html.window.location.href));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Link copied to clipboard!')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
             ],
           ),
         ),
