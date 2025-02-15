@@ -18,7 +18,7 @@ node --version
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/ashishawasthi/storewl.git
+git clone https://github.com/risheeboy/sgedu.git
 cd sgedu
 mv lib/firebase_options.dart.example lib/firebase_options.dart # change the values
 ```
