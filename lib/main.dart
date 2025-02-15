@@ -207,9 +207,9 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
 
     try {
       final questions = await _questionService.getQuestions(
-        _selectedSyllabus!,
-        _selectedSubject!,
-        _topicController.text.isNotEmpty ? _topicController.text : null,
+        syllabus: _selectedSyllabus!,
+        subject: _selectedSubject!,
+        topic: _topicController.text.isNotEmpty ? _topicController.text : null,
       );
       setState(() {
         _existingQuestions = questions;
