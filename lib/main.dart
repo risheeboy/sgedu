@@ -8,6 +8,7 @@ import 'services/user_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:html' as html;
 import 'package:flutter/services.dart';
+import 'widgets/question_card.dart';
 
 Future<void> signInWithGoogle() async {
   final GoogleAuthProvider googleProvider = GoogleAuthProvider();
@@ -106,7 +107,6 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   String? _selectedSubject;
   List<String>? _syllabusFiles;
   bool _isLoading = false;
-  bool _showAnswers = false;
   List<Question>? _questions;
   List<Question>? _existingQuestions;
   int _currentPage = 1;
@@ -284,6 +284,28 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
     }
   }
 
+  Widget _buildQuestionsList() {
+    if (_questions != null && _questions!.isNotEmpty) {
+      return ListView.builder(
+        itemCount: _questions!.length,
+        itemBuilder: (context, index) {
+          final question = _questions![index];
+          return QuestionCard(question: question, index: index);
+        },
+      );
+    } else if (_existingQuestions != null && _existingQuestions!.isNotEmpty) {
+      return ListView.builder(
+        itemCount: _existingQuestions!.length,
+        itemBuilder: (context, index) {
+          final question = _existingQuestions![index];
+          return QuestionCard(question: question, index: index);
+        },
+      );
+    } else {
+      return const SizedBox();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -384,99 +406,34 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Get Existing Questions'),
+                    : const Text('Show Questions'),
               ),
-              if (_questions != null) ...[
+              if (_questions != null || _existingQuestions != null) ...[
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Generated Questions:',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    if (_questions != null && _questions!.isNotEmpty)
+                      const Text(
+                        'Generated:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    else if (_existingQuestions != null && _existingQuestions!.isNotEmpty)
+                      const Text(
+                        'Questions:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _showAnswers = !_showAnswers;
-                        });
-                      },
-                      icon: Icon(_showAnswers
-                          ? Icons.visibility_off
-                          : Icons.visibility),
-                      label:
-                          Text(_showAnswers ? 'Hide Answers' : 'Show Answers'),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: _questions!.length,
-                    itemBuilder: (context, index) {
-                      final question = _questions![index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Question ${index + 1}:',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                question.question,
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              if (_showAnswers) ...[
-                                const SizedBox(height: 16),
-                                const Divider(),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Answer:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green[700],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                MarkdownBody(
-                                  data: question.correctAnswer,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: const TextStyle(fontSize: 14.0),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Explanation:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange[800],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                MarkdownBody(
-                                  data: question.explanation,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: const TextStyle(fontSize: 14.0),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  child: _buildQuestionsList(),
                 ),
               ],
               if (_existingQuestions != null && _existingQuestions!.isNotEmpty)
@@ -506,99 +463,6 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                     ),
                   ],
                 ),
-              if (_existingQuestions != null) ...[
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Existing Questions:',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _showAnswers = !_showAnswers;
-                        });
-                      },
-                      icon: Icon(_showAnswers
-                          ? Icons.visibility_off
-                          : Icons.visibility),
-                      label:
-                          Text(_showAnswers ? 'Hide Answers' : 'Show Answers'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _existingQuestions!.length,
-                    itemBuilder: (context, index) {
-                      final question = _existingQuestions![index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Question ${index + 1}:',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                question.question,
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              if (_showAnswers) ...[
-                                const SizedBox(height: 16),
-                                const Divider(),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Answer:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green[700],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                MarkdownBody(
-                                  data: question.correctAnswer,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: const TextStyle(fontSize: 14.0),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Explanation:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange[800],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                MarkdownBody(
-                                  data: question.explanation,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: const TextStyle(fontSize: 14.0),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
               if (_existingQuestions != null && _existingQuestions!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
