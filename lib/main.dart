@@ -163,10 +163,12 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
       final question = await _questionService.getQuestionById(id);
       setState(() {
         _selectedSyllabus = question.syllabus;
+      });
+      _updateSyllabusFiles();
+      setState(() {
         _selectedSubject = question.subject;
         _existingQuestions = [question];
       });
-      _updateSyllabusFiles();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
