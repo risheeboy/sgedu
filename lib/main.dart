@@ -318,70 +318,90 @@ class _QuestionPageState extends State<QuestionPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Syllabus Dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedSyllabus,
-                decoration: const InputDecoration(
-                  labelText: 'Syllabus',
-                  border: OutlineInputBorder(),
-                ),
-                items: _syllabusOptions
-                    .map((syllabus) => DropdownMenuItem(
-                          value: syllabus,
-                          child: Text(syllabus),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedSyllabus = value!;
-                    _updateSyllabusFiles();
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // Subject Dropdown (only show when syllabus is selected)
-              if (_syllabusFiles != null) 
-                DropdownButtonFormField<String>(
-                  value: _selectedSubject,
-                  decoration: const InputDecoration(
-                    labelText: 'Subject',
-                    border: OutlineInputBorder(),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  Flexible(
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: _selectedSyllabus,
+                      decoration: const InputDecoration(
+                        labelText: 'Syllabus',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _syllabusOptions
+                          .map((syllabus) => DropdownMenuItem(
+                                value: syllabus,
+                                child: Text(syllabus),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedSyllabus = value!;
+                          _updateSyllabusFiles();
+                        });
+                      },
+                    ),
                   ),
-                  items: _syllabusFiles!
-                      .map((file) => DropdownMenuItem(
-                            value: file.replaceAll('.md', ''),
-                            child: Text(file.replaceAll('.md', '')),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedSubject = value;
-                    });
-                  },
-                ),
-              const SizedBox(height: 16),
-
-              // Optional Topic Input
-              TextField(
-                controller: _topicController,
-                decoration: const InputDecoration(
-                  labelText: 'Topic (Optional)',
-                  border: OutlineInputBorder(),
-                ),
+                  if (_syllabusFiles != null)
+                    Flexible(
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        value: _selectedSubject,
+                        decoration: const InputDecoration(
+                          labelText: 'Subject',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _syllabusFiles!
+                            .map((file) => DropdownMenuItem(
+                                  value: file.replaceAll('.md', ''),
+                                  child: Text(file.replaceAll('.md', '')),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedSubject = value;
+                          });
+                        },
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
 
-              ElevatedButton(
-                onPressed: _isLoading ? null : _getExistingQuestions,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Go'),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _topicController,
+                      decoration: const InputDecoration(
+                        labelText: 'Topic (Optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    height: 56, // Match text field height
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _getExistingQuestions,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Go'),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 16),
+
               ElevatedButton(
                 onPressed: () {
                   if (FirebaseAuth.instance.currentUser == null) {
