@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class Question {
+  final String? id;
   final String question;
   final String type;
   final String explanation;
@@ -20,23 +21,26 @@ class Question {
     required this.syllabus,
     this.request,
     this.topics,
+    this.id,
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
     return Question(
+      id: json['id'] as String?,
       question: json['question'] as String,
       type: json['type'] as String,
       explanation: json['explanation'] as String,
       correctAnswer: json['correctAnswer'] as String,
       subject: json['subject'] as String,
       syllabus: json['syllabus'] as String,
-      request: json['request'] as DocumentReference,
+      request: json['request'] as DocumentReference?,
       topics: (json['topics'] as List<dynamic>).cast<String>(),
     );
   }
 
-  factory Question.fromMap(Map<String, dynamic> data) {
+  factory Question.fromMap(Map<String, dynamic> data, {String? id}) {
     return Question(
+      id: id,
       question: data['question'] as String,
       type: '',
       explanation: data['explanation'] as String,
@@ -144,7 +148,7 @@ class QuestionService {
       query = query.limit(limit);
 
       QuerySnapshot snapshot = await query.get();
-      return snapshot.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>)).toList();
+      return snapshot.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>, id: doc.id)).toList();
     } catch (e) {
       throw Exception('Error retrieving questions from Firestore: $e');
     }

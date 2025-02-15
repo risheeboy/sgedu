@@ -5,6 +5,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'firebase_options.dart';
 import 'services/question_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:html' as html;
+import 'package:flutter/services.dart';
 
 Future<void> signInWithGoogle() async {
   final GoogleAuthProvider googleProvider = GoogleAuthProvider();
@@ -220,6 +222,9 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
         _existingQuestions = questions;
         _totalPages = questions.isNotEmpty ? _currentPage + 1 : _totalPages;
       });
+      if (questions.isNotEmpty && questions[0].id != null) {
+        html.window.history.replaceState(null, '', '?questionId=${questions[0].id}');
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -549,6 +554,24 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                   ),
                 ),
               ],
+              if (_existingQuestions != null && _existingQuestions!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text('Shareable Link: ${html.window.location.href}')),
+                      IconButton(
+                        icon: const Icon(Icons.copy),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: html.window.location.href));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Link copied to clipboard!')),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
