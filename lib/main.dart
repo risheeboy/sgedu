@@ -86,20 +86,20 @@ class MyApp extends StatelessWidget {
             ),
           ],
         ),
-        body: const QuestionGeneratorPage(),
+        body: const QuestionPage(),
       ),
     );
   }
 }
 
-class QuestionGeneratorPage extends StatefulWidget {
-  const QuestionGeneratorPage({super.key});
+class QuestionPage extends StatefulWidget {
+  const QuestionPage({super.key});
 
   @override
-  State<QuestionGeneratorPage> createState() => _QuestionGeneratorPageState();
+  State<QuestionPage> createState() => _QuestionPageState();
 }
 
-class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
+class _QuestionPageState extends State<QuestionPage> {
   final _questionService = QuestionService();
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _topicController = TextEditingController();
@@ -107,7 +107,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   String? _selectedSubject;
   List<String>? _syllabusFiles;
   bool _isLoading = false;
-  List<Question>? _questions;
+  List<Question>? _generatedQuestions;
   List<Question>? _existingQuestions;
   int _currentPage = 1;
   int _totalPages = 1;
@@ -210,7 +210,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
 
     setState(() {
       _isLoading = true;
-      _questions = null;
+      _generatedQuestions = null;
     });
 
     try {
@@ -220,7 +220,8 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
         topic: _topicController.text.isNotEmpty ? _topicController.text : null,
       );
       setState(() {
-        _questions = questions;
+        _generatedQuestions = questions;
+        _existingQuestions = null;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -265,6 +266,7 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
       
       setState(() {
         _existingQuestions = questions;
+        _generatedQuestions = null;
         _totalPages = questions.isNotEmpty ? _currentPage + 1 : _totalPages;
       });
       if (questions.isNotEmpty && questions[0].id != null) {
@@ -285,11 +287,11 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
   }
 
   Widget _buildQuestionsList() {
-    if (_questions != null && _questions!.isNotEmpty) {
+    if (_generatedQuestions != null && _generatedQuestions!.isNotEmpty) {
       return ListView.builder(
-        itemCount: _questions!.length,
+        itemCount: _generatedQuestions!.length,
         itemBuilder: (context, index) {
-          final question = _questions![index];
+          final question = _generatedQuestions![index];
           return QuestionCard(question: question, index: index);
         },
       );
@@ -371,6 +373,16 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
               const SizedBox(height: 16),
 
               ElevatedButton(
+                onPressed: _isLoading ? null : _getExistingQuestions,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Go'),
+              ),
+              ElevatedButton(
                 onPressed: () {
                   if (FirebaseAuth.instance.currentUser == null) {
                     showDialog(
@@ -396,24 +408,14 @@ class _QuestionGeneratorPageState extends State<QuestionGeneratorPage> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Generate Questions'),
+                    : const Text('Generate 10 Questions'),
               ),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _getExistingQuestions,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Show Questions'),
-              ),
-              if (_questions != null || _existingQuestions != null) ...[
+              if (_generatedQuestions != null || _existingQuestions != null) ...[
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    if (_questions != null && _questions!.isNotEmpty)
+                    if (_generatedQuestions != null && _generatedQuestions!.isNotEmpty)
                       const Text(
                         'Generated:',
                         style: TextStyle(
