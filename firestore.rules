@@ -13,6 +13,20 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if 
+        request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.data.keys().hasOnly(['userId', 'lastLogin']) &&
+        request.resource.data.userId == userId;
+
+      allow update: if 
+        request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.data.keys().hasOnly(['lastLogin']) &&
+        resource.data.userId == userId;
+    }
 
     // Default deny all
     match /{document=**} {

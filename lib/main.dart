@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'firebase_options.dart';
 import 'services/question_service.dart';
+import 'services/user_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:html' as html;
 import 'package:flutter/services.dart';
@@ -33,6 +34,12 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  FirebaseAuth.instance.authStateChanges().listen((User? user) async {
+    if (user != null) {
+      // Existing login logic
+      await UserService.updateLastLogin(user.uid);
+    }
+  });
   runApp(const MyApp());
 }
 
