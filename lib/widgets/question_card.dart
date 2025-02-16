@@ -224,7 +224,7 @@ class _QuestionCardState extends State<QuestionCard> {
                         ),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.pop(context, false),
+                            onPressed: () => Navigator.pop(context),
                             child: const Text('Cancel'),
                           ),
                           TextButton(
@@ -276,6 +276,13 @@ class _QuestionCardState extends State<QuestionCard> {
             ),
             if (_showAnswer) ...[
               const SizedBox(height: 16),
+              Text(
+                'Answer:',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Colors.blue[800],
+                ),
+              ),
+              const SizedBox(height: 4),
               MarkdownBody(
                 data: widget.question.correctAnswer,
                 styleSheet: MarkdownStyleSheet(
