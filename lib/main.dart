@@ -257,6 +257,11 @@ class _QuestionPageState extends State<QuestionPage> {
         .where('syllabus', isEqualTo: _selectedSyllabus)
         .where('subject', isEqualTo: _selectedSubject);
 
+    // Add topic filter if topic is provided
+    if (_topicController.text.trim().isNotEmpty) {
+      questionsQuery = questionsQuery.where('topic', isEqualTo: _topicController.text.trim());
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
 
@@ -305,6 +310,14 @@ class _QuestionPageState extends State<QuestionPage> {
           return Question.fromJson(data);
         }).toList(); 
       });
+      // Show snackbar if no questions found
+      if (snapshot.docs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No new questions found'),
+          ),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
