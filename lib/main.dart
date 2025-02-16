@@ -259,7 +259,8 @@ class _QuestionPageState extends State<QuestionPage> {
 
     // Add topic filter if topic is provided
     if (_topicController.text.trim().isNotEmpty) {
-      questionsQuery = questionsQuery.where('topic', isEqualTo: _topicController.text.trim());
+      final normalizedTopic = _topicController.text.trim().toLowerCase().replaceAll(RegExp(r'[\s-]'), '');
+      questionsQuery = questionsQuery.where('topics', arrayContains: normalizedTopic);
     }
 
     final user = FirebaseAuth.instance.currentUser;
@@ -550,14 +551,6 @@ class _QuestionPageState extends State<QuestionPage> {
                     Text('Question $_currentPage', style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(width: 20),
                     ElevatedButton(
-                      onPressed: () {
-                        setState(() => _currentPage += 1);
-                        _getExistingQuestions();
-                      },
-                      child: Text('Next →'),
-                    ),
-                    SizedBox(width: 20),
-                    ElevatedButton(
                       onPressed: _currentPage > 1
                           ? () {
                               setState(() => _currentPage -= 1);
@@ -565,6 +558,14 @@ class _QuestionPageState extends State<QuestionPage> {
                             }
                           : null,
                       child: Text('← Previous'),
+                    ),
+                    SizedBox(width: 20),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() => _currentPage += 1);
+                        _getExistingQuestions();
+                      },
+                      child: Text('Next →'),
                     ),
                   ],
                 ),

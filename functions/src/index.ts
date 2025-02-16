@@ -201,7 +201,7 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
           subject: data.subject,
           syllabus: data.syllabus,
           request: afterData.ref,
-          topics: [],// TODO: Generate topics
+          topics: data.topic?.trim() ? [data.topic.trim().toLowerCase().replace(/[\s-]/g, '')] : [], //TODO : pick from pre-defined topics
           timestamp: admin.firestore.Timestamp.now()
         });
       });
