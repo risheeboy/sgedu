@@ -467,6 +467,7 @@ class _QuestionPageState extends State<QuestionPage> {
                     Expanded(
                       child: TextField(
                         controller: _topicController,
+                        onChanged: (value) => setState(() {}),
                         decoration: const InputDecoration(
                           labelText: 'Topic (Optional)',
                           border: OutlineInputBorder(),
@@ -477,7 +478,7 @@ class _QuestionPageState extends State<QuestionPage> {
                     SizedBox(
                       height: 56, // Match text field height
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _getExistingQuestions,
+                        onPressed: (_isLoading || _topicController.text.trim().isEmpty) ? null : _getExistingQuestions,
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                         ),
