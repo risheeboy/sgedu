@@ -4,19 +4,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/feedback_service.dart';
 import 'chat_dialog.dart';
+import '../services/quiz_service.dart'; 
 
 class QuestionCard extends StatefulWidget {
   final dynamic question;
   final int index;
 
-  const QuestionCard({Key? key, required this.question, required this.index}) : super(key: key);
+  const QuestionCard({
+    super.key, 
+    required this.question,
+    required this.index,
+  });
 
   @override
-  _QuestionCardState createState() => _QuestionCardState();
+  State<QuestionCard> createState() => _QuestionCardState();
 }
 
 class _QuestionCardState extends State<QuestionCard> {
-  bool _showAnswers = false;
+  bool _showAnswer = false;
+  String? _selectedQuizId;
+  bool _addingToQuiz = false;
   bool _showFeedbackOptions = false;
   Set<String> _selectedReasons = {};
   final TextEditingController _feedbackCommentController = TextEditingController();
@@ -130,137 +137,270 @@ class _QuestionCardState extends State<QuestionCard> {
     );
   }
 
+  Future<void> _addToQuiz() async {
+    if (_selectedQuizId == null) return;
+    
+    setState(() => _addingToQuiz = true);
+    try {
+      await QuizService().addQuestionToQuiz(
+        quizId: _selectedQuizId!,
+        question: {
+          'question': widget.question.question,
+          'correctAnswer': widget.question.correctAnswer,
+          'explanation': widget.question.explanation,
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added to quiz')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to add to quiz')),
+        );
+      }
+    } finally {
+      setState(() => _addingToQuiz = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.all(8.0),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Question:',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.thumb_up, color: Colors.green),
-                      iconSize: 12,
-                      onPressed: () => _submitFeedback('positive'),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.thumb_down, color: Colors.red),
-                      iconSize: 12,
-                      onPressed: _showNegativeFeedbackOptions,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chat),
-                      tooltip: 'Ask AI Tutor',
-                      onPressed: () async {
-                        final user = FirebaseAuth.instance.currentUser;
-                        if (user != null) {
-                          print('[DEBUG] Current User UID: ${user.uid}');
-                          
-                          final docData = {
-                            'questionId': widget.question.id,
-                            'context': {
-                              'question': widget.question.question ?? '',
-                              'answer': widget.question.correctAnswer ?? '',
-                              'explanation': widget.question.explanation ?? '',
-                            },
-                            'userId': user.uid,
-                            'messages': [],
-                            'status': 'active',
-                            'createdAt': FieldValue.serverTimestamp(),
-                          };
-                          
-                          print('[DEBUG] Chat Session Data: $docData');
-                          
-                          final doc = await FirebaseFirestore.instance
-                              .collection('chat_sessions')
-                              .add(docData);
-                          
-                          if (mounted) {
-                            showDialog(
-                              context: context,
-                              builder: (context) => ChatDialog(
-                                chatSessionId: doc.id,
-                              ),
-                            );
-                          }
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Please login to chat'))
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.question.question,
-              style: const TextStyle(fontSize: 16),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _showAnswers = !_showAnswers;
-                  });
-                },
-                icon: Icon(_showAnswers ? Icons.visibility_off : Icons.visibility),
-                label: Text(_showAnswers ? 'Hide Answer' : 'Show Answer'),
+            MarkdownBody(
+              data: widget.question.question,
+              styleSheet: MarkdownStyleSheet(
+                p: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            if (_showAnswers) ...[
+            if (_showAnswer) ...[
               const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text(
-                'Answer:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green[700],
-                ),
-              ),
-              const SizedBox(height: 8),
               MarkdownBody(
                 data: widget.question.correctAnswer,
                 styleSheet: MarkdownStyleSheet(
-                  p: const TextStyle(fontSize: 14.0),
+                  p: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Explanation:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange[800],
+              if (widget.question.explanation != null && widget.question.explanation.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Explanation:',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Colors.orange[800],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              MarkdownBody(
-                data: widget.question.explanation,
-                styleSheet: MarkdownStyleSheet(
-                  p: const TextStyle(fontSize: 14.0),
+                const SizedBox(height: 4),
+                MarkdownBody(
+                  data: widget.question.explanation,
+                  styleSheet: MarkdownStyleSheet(
+                    p: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ),
-              ),
+              ],
             ],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                // Quiz dropdown
+                Expanded(
+                  child: QuizDropdown(
+                    selectedQuizId: _selectedQuizId,
+                    onQuizSelected: (quizId) {
+                      setState(() => _selectedQuizId = quizId);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Add to Quiz button
+                if (_selectedQuizId != null)
+                  ElevatedButton.icon(
+                    onPressed: _addingToQuiz ? null : _addToQuiz,
+                    icon: _addingToQuiz 
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add),
+                    label: const Text('Add'),
+                  ),
+                const SizedBox(width: 8),
+                // Show/Hide answer toggle
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _showAnswer = !_showAnswer;
+                    });
+                  },
+                  icon: Icon(_showAnswer ? Icons.visibility_off : Icons.visibility),
+                  label: Text('Answer'),
+                ),
+                const SizedBox(width: 8),
+                // Feedback buttons
+                IconButton(
+                  icon: const Icon(Icons.thumb_up, color: Colors.green),
+                  iconSize: 20,
+                  onPressed: () => _submitFeedback('positive'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.thumb_down, color: Colors.red),
+                  iconSize: 20,
+                  onPressed: _showNegativeFeedbackOptions,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chat),
+                  tooltip: 'Ask AI Tutor',
+                  onPressed: () async {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user != null) {
+                      final docData = {
+                        'questionId': widget.question.id,
+                        'context': {
+                          'question': widget.question.question,
+                          'answer': widget.question.correctAnswer,
+                          'explanation': widget.question.explanation,
+                        },
+                        'userId': user.uid,
+                        'messages': [],
+                        'status': 'active',
+                        'createdAt': FieldValue.serverTimestamp(),
+                      };
+                      
+                      final doc = await FirebaseFirestore.instance
+                          .collection('chat_sessions')
+                          .add(docData);
+                      
+                      if (mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (context) => ChatDialog(
+                            chatSessionId: doc.id,
+                          ),
+                        );
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please login to chat'))
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class QuizDropdown extends StatefulWidget {
+  final String? selectedQuizId;
+  final ValueChanged<String?> onQuizSelected;
+
+  const QuizDropdown({super.key, this.selectedQuizId, required this.onQuizSelected});
+
+  @override
+  State<QuizDropdown> createState() => _QuizDropdownState();
+}
+
+class _QuizDropdownState extends State<QuizDropdown> {
+  final TextEditingController _newQuizController = TextEditingController();
+
+  Future<void> _createNewQuiz(BuildContext context) async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('New Quiz'),
+        content: TextField(
+          controller: _newQuizController,
+          decoration: const InputDecoration(hintText: 'Enter quiz name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (_newQuizController.text.isNotEmpty) {
+                final newQuizId = await QuizService().createQuiz(
+                  name: _newQuizController.text,
+                );
+                widget.onQuizSelected(newQuizId);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: QuizService().getUserQuizzesStream(),
+      builder: (context, snapshot) {
+        // Create default items that are always present
+        final items = <DropdownMenuItem<String>>[
+          const DropdownMenuItem<String>(
+            value: '',
+            child: Text('Select Quiz'),
+          ),
+          const DropdownMenuItem<String>(
+            value: 'new',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.add),
+              title: Text('New Quiz'),
+            ),
+          ),
+        ];
+
+        // Add quiz items if data is available
+        if (snapshot.hasData) {
+          items.insertAll(1, snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return DropdownMenuItem<String>(
+              value: doc.id,
+              child: Text(data['name'] as String),
+            );
+          }));
+        }
+
+        // If the selected value is not in the items list, reset to empty
+        final selectedValue = widget.selectedQuizId ?? '';
+        final hasValue = items.any((item) => item.value == selectedValue);
+        
+        return DropdownButtonFormField<String>(
+          value: hasValue ? selectedValue : '',
+          items: items,
+          onChanged: (value) {
+            if (value == 'new') {
+              _createNewQuiz(context);
+            } else if (value != null && value.isNotEmpty) {
+              widget.onQuizSelected(value);
+            } else {
+              widget.onQuizSelected(null);
+            }
+          },
+          decoration: const InputDecoration(
+            labelText: 'Add to Quiz',
+            border: OutlineInputBorder(),
+          ),
+          isExpanded: true,
+        );
+      },
     );
   }
 }

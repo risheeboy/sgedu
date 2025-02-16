@@ -1,32 +1,56 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /requests/{requestId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
     }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /requests/{requestId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) 
+        && isOwner(request.resource.data.userId);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
     match /questions/{questionId} {
       allow read: if true;
     }
+
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create, update: if 
-        request.auth != null &&
-        request.auth.uid == userId &&
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.keys().hasOnly(['userId', 'lastLogin']);
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && isOwner(request.resource.data.userId)
+        && request.resource.data.keys().hasOnly(['userId', 'lastLogin']);
     }
+
     match /feedbacks/{feedbackId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow write: if isOwner(request.resource.data.userId);
     }
+
     match /chat_sessions/{session} {
-      allow create: if request.auth != null 
-        && request.resource.data.userId == request.auth.uid;
-      
-      allow read, update, delete: if request.auth != null 
-        && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId);
+      allow read, update, delete: if isOwner(resource.data.userId);
     }
+
+    match /quizzes/{quizId} {
+      allow create: if isOwner(request.resource.data.userId);
+      
+      allow read: if isOwner(resource.data.userId);
+      
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId;
+      
+      allow delete: if isOwner(resource.data.userId);
+    }
+
     // Default deny all
     match /{document=**} {
       allow read, write: if false;
