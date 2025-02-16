@@ -461,58 +461,54 @@ class _QuestionPageState extends State<QuestionPage> {
               ),
               const SizedBox(height: 16),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _topicController,
-                      decoration: const InputDecoration(
-                        labelText: 'Topic (Optional)',
-                        border: OutlineInputBorder(),
+              if (_selectedSubject != null) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _topicController,
+                        decoration: const InputDecoration(
+                          labelText: 'Topic (Optional)',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    height: 56, // Match text field height
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _getExistingQuestions,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      height: 56, // Match text field height
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _getExistingQuestions,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                        ),
+                        child: const Text('Go'),
                       ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Go'),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-              ElevatedButton(
-                onPressed: () {
-                  if (FirebaseAuth.instance.currentUser == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please login to generate questions'),
-                      ),
-                    );
-                  } else {
-                    _generateQuestions();
-                  }
-                },
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Generate 10 More Questions'),
-              ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (FirebaseAuth.instance.currentUser == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please login to generate questions'),
+                        ),
+                      );
+                    } else {
+                      _generateQuestions();
+                    }
+                  },
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Generate 10 new questions'),
+                ),
+              ],
               if (_generatedQuestions != null || _existingQuestions != null) ...[
                 const SizedBox(height: 24),
                 Row(
@@ -520,20 +516,12 @@ class _QuestionPageState extends State<QuestionPage> {
                   children: [
                     if (_generatedQuestions != null && _generatedQuestions!.isNotEmpty)
                       const Text(
-                        'Generated:',
+                        'Generated Questions:',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       )
-                    else if (_existingQuestions != null && _existingQuestions!.isNotEmpty)
-                      const Text(
-                        'Questions:',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
