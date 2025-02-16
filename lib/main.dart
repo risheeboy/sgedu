@@ -241,7 +241,7 @@ class _QuestionPageState extends State<QuestionPage> {
   }
 
   Future<void> _getExistingQuestions({int? page}) async {
-    // Validate inputs
+        // Validate inputs
     if (_selectedSubject == null || _selectedSyllabus == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -251,61 +251,35 @@ class _QuestionPageState extends State<QuestionPage> {
       );
       return;
     }
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    // Fetch IDs of questions with existing feedback
-    final feedbackQuery = await FirebaseFirestore.instance
-        .collection('feedbacks')
-        .where('userId', isEqualTo: user.uid)
-        .get();
-
-    final List<String> excludedQuestionIds = feedbackQuery.docs
-        .map((doc) => doc['questionId'] as String)
-        .where((id) => id.isNotEmpty) // Filter out empty IDs
-        .toList();
-
     // Fetch questions, excluding those with existing feedback
     Query<Map<String, dynamic>> questionsQuery = FirebaseFirestore.instance
         .collection('questions')
         .where('syllabus', isEqualTo: _selectedSyllabus)
         .where('subject', isEqualTo: _selectedSubject);
 
-    if (excludedQuestionIds.isNotEmpty) {
-      // Apply not-in filter only if we have valid IDs to exclude
-      if (excludedQuestionIds.length <= 10) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+
+      // Fetch IDs of questions with existing feedback (last 50)
+      final feedbackQuery = await FirebaseFirestore.instance
+          .collection('feedbacks')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('timestamp', descending: true)
+          .limit(50)
+          .get();
+
+      final List<String> excludedQuestionIds = feedbackQuery.docs
+          .map((doc) => doc['questionId'] as String)
+          .where((id) => id.isNotEmpty) // Filter out empty IDs
+          .toList();
+      print("Excluded question IDs (last 50): $excludedQuestionIds");
+      
+
+      if (excludedQuestionIds.isNotEmpty) {
         questionsQuery = questionsQuery.where(FieldPath.documentId, whereNotIn: excludedQuestionIds);
-      } else {
-        // Handle more than 10 excluded IDs (split into multiple queries)
-        List<List<String>> chunks = [];
-        for (var i = 0; i < excludedQuestionIds.length; i += 10) {
-          chunks.add(excludedQuestionIds.sublist(i, min(i + 10, excludedQuestionIds.length)));
-        }
-
-        List<Question> allQuestions = [];
-        for (final chunk in chunks) {
-          if (chunk.isNotEmpty) { // Only query if we have valid IDs in the chunk
-            final chunkQuery = await FirebaseFirestore.instance
-                .collection('questions')
-                .where('syllabus', isEqualTo: _selectedSyllabus)
-                .where('subject', isEqualTo: _selectedSubject)
-                .where(FieldPath.documentId, whereNotIn: chunk)
-                .get();
-            allQuestions.addAll(chunkQuery.docs.map((doc) {
-              final data = doc.data();
-              data['id'] = doc.id; // Include the document ID
-              return Question.fromJson(data);
-            }).toList());
-          }
-        }
-
-        setState(() {
-          _isLoading = false;
-          _existingQuestions = allQuestions;
-        });
-        return;
       }
+    } else {
+      //TODO ask to login, for not seeing questions again
     }
 
     if (page != null) {
@@ -323,7 +297,7 @@ class _QuestionPageState extends State<QuestionPage> {
       setState(() {
         _existingQuestions = snapshot.docs.map((doc) {
           final data = doc.data();
-          data['id'] = doc.id; // Include the document ID
+          data['id'] = doc.id;
           return Question.fromJson(data);
         }).toList(); 
       });
