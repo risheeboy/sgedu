@@ -310,7 +310,7 @@ class _QuestionCardState extends State<QuestionCard> {
                 ),
                 const SizedBox(width: 8),
                 // Show/Hide answer toggle
-                TextButton.icon(
+                OutlinedButton.icon(
                   onPressed: () {
                     setState(() {
                       _showAnswer = !_showAnswer;
