@@ -112,8 +112,8 @@ class _QuestionPageState extends State<QuestionPage> {
   List<Question>? _generatedQuestions;
   List<Question>? _existingQuestions;
   int _currentPage = 1;
-  int _totalPages = 1;
-  int _pageSize = 1;
+  DocumentSnapshot? _lastDocument;
+  static const int _pageSize = 1;
 
   // Add syllabus options
   final List<String> _syllabusOptions = [
@@ -240,8 +240,8 @@ class _QuestionPageState extends State<QuestionPage> {
     }
   }
 
-  Future<void> _getExistingQuestions({int? page}) async {
-        // Validate inputs
+  Future<void> _getExistingQuestions() async {
+    // Validate inputs
     if (_selectedSubject == null || _selectedSyllabus == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -282,8 +282,9 @@ class _QuestionPageState extends State<QuestionPage> {
       //TODO ask to login, for not seeing questions again
     }
 
-    if (page != null) {
-      questionsQuery = questionsQuery.startAfter([page * _pageSize]).limit(_pageSize);
+    questionsQuery = questionsQuery.orderBy(FieldPath.documentId);
+    if (_currentPage > 0 && _lastDocument != null) {
+      questionsQuery = questionsQuery.startAfterDocument(_lastDocument!).limit(_pageSize);
     } else {
       questionsQuery = questionsQuery.limit(_pageSize);
     }
@@ -294,6 +295,9 @@ class _QuestionPageState extends State<QuestionPage> {
 
     try {
       final snapshot = await questionsQuery.get();
+      if (snapshot.docs.isNotEmpty) {
+        _lastDocument = snapshot.docs.last;
+      }
       setState(() {
         _existingQuestions = snapshot.docs.map((doc) {
           final data = doc.data();
@@ -544,12 +548,10 @@ class _QuestionPageState extends State<QuestionPage> {
                     Text('Question $_currentPage', style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(width: 20),
                     ElevatedButton(
-                      onPressed: _currentPage < _totalPages
-                          ? () {
-                              setState(() => _currentPage += 1);
-                              _getExistingQuestions();
-                            }
-                          : null,
+                      onPressed: () {
+                        setState(() => _currentPage += 1);
+                        _getExistingQuestions();
+                      },
                       child: Text('Next →'),
                     ),
                     SizedBox(width: 20),
