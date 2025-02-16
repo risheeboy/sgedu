@@ -21,15 +21,21 @@ class _QuestionCardState extends State<QuestionCard> {
 
   void _submitFeedback(String type, {List<String>? reasons, String? comment}) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    await FeedbackService.submitFeedback(
-      questionId: widget.question.id ?? '',
-      userId: user.uid,
-      type: type,
-      reasons: reasons,
-      comment: comment,
-    );
+    if (user != null) {
+      await FeedbackService.submitFeedback(
+        questionId: widget.question.id ?? '',
+        userId: user.uid,
+        type: type,
+        reasons: reasons,
+        comment: comment,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please login to submit feedback')
+        ),
+      );
+    }
   }
 
   void _showNegativeFeedbackOptions() {

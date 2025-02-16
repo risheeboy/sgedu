@@ -492,17 +492,9 @@ class _QuestionPageState extends State<QuestionPage> {
               ElevatedButton(
                 onPressed: () {
                   if (FirebaseAuth.instance.currentUser == null) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Login Required'),
-                        content: const Text('Please login to generate questions.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
-                          ),
-                        ],
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please login to generate questions'),
                       ),
                     );
                   } else {

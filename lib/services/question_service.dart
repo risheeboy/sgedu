@@ -62,19 +62,20 @@ class QuestionService {
     String? topic,
   }) async {
     try {
+
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null)
+        throw Exception('User needs to log in before generating questions');
+
       // Create a document in the requests collection
       final data = {
         'subject': subject,
         'syllabus': syllabus,
         'topic': topic,
+        'userId': currentUser.uid,
         'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
       };
-
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser != null) {
-        data['userId'] = currentUser.uid;
-      }
 
       DocumentReference docRef = await _firestore.collection('requests').add(data);
 
