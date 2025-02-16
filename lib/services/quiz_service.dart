@@ -8,7 +8,6 @@ class QuizService {
   Stream<QuerySnapshot> getUserQuizzesStream() {
     final user = _auth.currentUser;
     if (user == null) {
-      // If no user is signed in, return empty stream
       return Stream.empty();
     }
     
@@ -33,13 +32,14 @@ class QuizService {
     return docRef.id;
   }
 
-  Future<void> addQuestionToQuiz({
+  Future<void> toggleQuestionInQuiz({
     required String quizId,
     required Map<String, dynamic> question,
+    required bool add,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
-      throw Exception('Must be signed in to add questions to quiz');
+      throw Exception('Must be signed in to modify quiz');
     }
 
     final quizDoc = await _quizzes.doc(quizId).get();
@@ -53,11 +53,38 @@ class QuizService {
     }
 
     final questions = List<Map<String, dynamic>>.from(quizData['questions'] ?? []);
-    questions.add(question);
+    
+    if (add) {
+      // Add only if not already present
+      if (!questions.any((q) => q['question'] == question['question'])) {
+        questions.add(question);
+      }
+    } else {
+      // Remove if present
+      questions.removeWhere((q) => q['question'] == question['question']);
+    }
 
     await _quizzes.doc(quizId).update({
       'questions': questions,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<List<String>> getQuizzesContainingQuestion(Map<String, dynamic> question) async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    final querySnapshot = await _quizzes
+        .where('userId', isEqualTo: user.uid)
+        .get();
+
+    return querySnapshot.docs
+        .where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final questions = List<Map<String, dynamic>>.from(data['questions'] ?? []);
+          return questions.any((q) => q['question'] == question['question']);
+        })
+        .map((doc) => doc.id)
+        .toList();
   }
 }

@@ -22,8 +22,8 @@ class QuestionCard extends StatefulWidget {
 
 class _QuestionCardState extends State<QuestionCard> {
   bool _showAnswer = false;
-  String? _selectedQuizId;
-  bool _addingToQuiz = false;
+  Set<String> _selectedQuizIds = {};
+  bool _updatingQuizzes = false;
   bool _showFeedbackOptions = false;
   Set<String> _selectedReasons = {};
   final TextEditingController _feedbackCommentController = TextEditingController();
@@ -47,7 +47,7 @@ class _QuestionCardState extends State<QuestionCard> {
     }
   }
 
-  void _showNegativeFeedbackOptions() {
+  Future<void> _showNegativeFeedbackOptions() async {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -137,33 +137,126 @@ class _QuestionCardState extends State<QuestionCard> {
     );
   }
 
-  Future<void> _addToQuiz() async {
-    if (_selectedQuizId == null) return;
+  Future<void> _showQuizSelectionDialog() async {
+    final quizService = QuizService();
     
-    setState(() => _addingToQuiz = true);
-    try {
-      await QuizService().addQuestionToQuiz(
-        quizId: _selectedQuizId!,
-        question: {
-          'question': widget.question.question,
-          'correctAnswer': widget.question.correctAnswer,
-          'explanation': widget.question.explanation,
+    // Get current quiz selections
+    _selectedQuizIds = Set.from(
+      await quizService.getQuizzesContainingQuestion({
+        'question': widget.question.question,
+        'correctAnswer': widget.question.correctAnswer,
+        'explanation': widget.question.explanation,
+      })
+    );
+    
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StreamBuilder<QuerySnapshot>(
+        stream: quizService.getUserQuizzesStream(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final quizzes = snapshot.data!.docs;
+          
+          return StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+              title: const Text('Add to Quizzes'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ...quizzes.map((quiz) {
+                      final data = quiz.data() as Map<String, dynamic>;
+                      return CheckboxListTile(
+                        title: Text(data['name'] as String),
+                        value: _selectedQuizIds.contains(quiz.id),
+                        onChanged: _updatingQuizzes 
+                          ? null 
+                          : (checked) async {
+                              setState(() => _updatingQuizzes = true);
+                              try {
+                                await quizService.toggleQuestionInQuiz(
+                                  quizId: quiz.id,
+                                  question: {
+                                    'question': widget.question.question,
+                                    'correctAnswer': widget.question.correctAnswer,
+                                    'explanation': widget.question.explanation,
+                                  },
+                                  add: checked!,
+                                );
+                                setState(() {
+                                  if (checked) {
+                                    _selectedQuizIds.add(quiz.id);
+                                  } else {
+                                    _selectedQuizIds.remove(quiz.id);
+                                  }
+                                });
+                              } finally {
+                                setState(() => _updatingQuizzes = false);
+                              }
+                            },
+                      );
+                    }),
+                    if (quizzes.isEmpty)
+                      const Text('No quizzes yet. Create one below.'),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    final controller = TextEditingController();
+                    final created = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('New Quiz'),
+                        content: TextField(
+                          controller: controller,
+                          decoration: const InputDecoration(
+                            labelText: 'Quiz Name',
+                            hintText: 'Enter quiz name',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              if (controller.text.isNotEmpty) {
+                                await quizService.createQuiz(
+                                  name: controller.text,
+                                );
+                                Navigator.pop(context, true);
+                              }
+                            },
+                            child: const Text('Create'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (created == true) {
+                      setState(() {}); // Refresh list
+                    }
+                  },
+                  child: const Text('New Quiz'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Done'),
+                ),
+              ],
+            ),
+          );
         },
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to quiz')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to add to quiz')),
-        );
-      }
-    } finally {
-      setState(() => _addingToQuiz = false);
-    }
+      ),
+    );
   }
 
   @override
@@ -209,29 +302,12 @@ class _QuestionCardState extends State<QuestionCard> {
             const SizedBox(height: 16),
             Row(
               children: [
-                // Quiz dropdown
-                Expanded(
-                  child: QuizDropdown(
-                    selectedQuizId: _selectedQuizId,
-                    onQuizSelected: (quizId) {
-                      setState(() => _selectedQuizId = quizId);
-                    },
-                  ),
+                // Quiz selection button
+                OutlinedButton.icon(
+                  onPressed: _showQuizSelectionDialog,
+                  icon: const Icon(Icons.playlist_add),
+                  label: const Text('Quiz'),
                 ),
-                const SizedBox(width: 8),
-                // Add to Quiz button
-                if (_selectedQuizId != null)
-                  ElevatedButton.icon(
-                    onPressed: _addingToQuiz ? null : _addToQuiz,
-                    icon: _addingToQuiz 
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.add),
-                    label: const Text('Add'),
-                  ),
                 const SizedBox(width: 8),
                 // Show/Hide answer toggle
                 TextButton.icon(
@@ -241,9 +317,9 @@ class _QuestionCardState extends State<QuestionCard> {
                     });
                   },
                   icon: Icon(_showAnswer ? Icons.visibility_off : Icons.visibility),
-                  label: Text('Answer'),
+                  label: const Text('Answer'),
                 ),
-                const SizedBox(width: 8),
+                const Spacer(),
                 // Feedback buttons
                 IconButton(
                   icon: const Icon(Icons.thumb_up, color: Colors.green),
