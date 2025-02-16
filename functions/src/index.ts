@@ -134,6 +134,12 @@ Ensure questions:
 - Use precise technical terminology from the syllabus
 - Cover key examination topics and assessment objectives
 - Follow official marking schemes and rubrics
+- Dont preface the questions with "Question:" or similar prefixes such as "Short Answer:" or "MCQ:" or "Application:" or etc
+- Include key concepts and application of the syllabus
+- Include any relevant past exam questions or educational resources for context
+- Include any commonly occuring questions or patterns in the syllabus and state them in the explanation
+- Show any "trick" questions or any outstanding questions that have a high percentage of wrong answers in the past
+- Follow the same structure as the example JSON provided
 
 Important: Return ONLY the JSON object, no other text or formatting.`;
       console.log("Singapore Education Prompt:", singaporeEducationPrompt);
