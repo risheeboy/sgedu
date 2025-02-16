@@ -27,14 +27,14 @@ class QuizService {
       'name': name,
       'userId': user.uid,
       'createdAt': FieldValue.serverTimestamp(),
-      'questions': [],
+      'questionIds': [],
     });
     return docRef.id;
   }
 
   Future<void> toggleQuestionInQuiz({
     required String quizId,
-    required Map<String, dynamic> question,
+    required String questionId,
     required bool add,
   }) async {
     final user = _auth.currentUser;
@@ -52,25 +52,23 @@ class QuizService {
       throw Exception('Not authorized to modify this quiz');
     }
 
-    final questions = List<Map<String, dynamic>>.from(quizData['questions'] ?? []);
+    final questionIds = List<String>.from(quizData['questionIds'] ?? []);
     
     if (add) {
-      // Add only if not already present
-      if (!questions.any((q) => q['question'] == question['question'])) {
-        questions.add(question);
+      if (!questionIds.contains(questionId)) {
+        questionIds.add(questionId);
       }
     } else {
-      // Remove if present
-      questions.removeWhere((q) => q['question'] == question['question']);
+      questionIds.remove(questionId);
     }
 
     await _quizzes.doc(quizId).update({
-      'questions': questions,
+      'questionIds': questionIds,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<List<String>> getQuizzesContainingQuestion(Map<String, dynamic> question) async {
+  Future<List<String>> getQuizzesContainingQuestion(String questionId) async {
     final user = _auth.currentUser;
     if (user == null) return [];
 
@@ -81,8 +79,8 @@ class QuizService {
     return querySnapshot.docs
         .where((doc) {
           final data = doc.data() as Map<String, dynamic>;
-          final questions = List<Map<String, dynamic>>.from(data['questions'] ?? []);
-          return questions.any((q) => q['question'] == question['question']);
+          final questionIds = List<String>.from(data['questionIds'] ?? []);
+          return questionIds.contains(questionId);
         })
         .map((doc) => doc.id)
         .toList();

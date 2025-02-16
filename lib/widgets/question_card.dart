@@ -142,11 +142,7 @@ class _QuestionCardState extends State<QuestionCard> {
     
     // Get current quiz selections
     _selectedQuizIds = Set.from(
-      await quizService.getQuizzesContainingQuestion({
-        'question': widget.question.question,
-        'correctAnswer': widget.question.correctAnswer,
-        'explanation': widget.question.explanation,
-      })
+      await quizService.getQuizzesContainingQuestion(widget.question.id)
     );
     
     if (!mounted) return;
@@ -182,11 +178,7 @@ class _QuestionCardState extends State<QuestionCard> {
                               try {
                                 await quizService.toggleQuestionInQuiz(
                                   quizId: quiz.id,
-                                  question: {
-                                    'question': widget.question.question,
-                                    'correctAnswer': widget.question.correctAnswer,
-                                    'explanation': widget.question.explanation,
-                                  },
+                                  questionId: widget.question.id,
                                   add: checked!,
                                 );
                                 setState(() {
