@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/feedback_service.dart';
+import 'chat_dialog.dart';
 
 class QuestionCard extends StatefulWidget {
   final dynamic question;
@@ -158,6 +160,44 @@ class _QuestionCardState extends State<QuestionCard> {
                       icon: const Icon(Icons.thumb_down, color: Colors.red),
                       iconSize: 12,
                       onPressed: _showNegativeFeedbackOptions,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chat),
+                      tooltip: 'Ask AI Tutor',
+                      onPressed: () async {
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user != null) {
+                          print('[DEBUG] Current User UID: ${user.uid}');
+                          
+                          final docData = {
+                            'questionId': widget.question.id,
+                            'context': {
+                              'question': widget.question.question ?? '',
+                              'answer': widget.question.correctAnswer ?? '',
+                              'explanation': widget.question.explanation ?? '',
+                            },
+                            'userId': user.uid,
+                            'messages': [],
+                            'status': 'active',
+                            'createdAt': FieldValue.serverTimestamp(),
+                          };
+                          
+                          print('[DEBUG] Chat Session Data: $docData');
+                          
+                          final doc = await FirebaseFirestore.instance
+                              .collection('chat_sessions')
+                              .add(docData);
+                          
+                          if (mounted) {
+                            showDialog(
+                              context: context,
+                              builder: (context) => ChatDialog(
+                                chatSessionId: doc.id,
+                              ),
+                            );
+                          }
+                        }
+                      },
                     ),
                   ],
                 ),

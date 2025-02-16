@@ -1,14 +1,12 @@
-import 'dart:math'; // Import dart:math for the min function
+// Import dart:math for the min function
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:html' as html;
-import 'package:flutter/services.dart';
 import 'widgets/question_card.dart';
 import 'services/question_service.dart'; // Ensure Question model is accessible
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'firebase_options.dart';
 import 'services/user_service.dart';
 

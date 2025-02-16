@@ -24,6 +24,7 @@
 - LLM text generation API calls should include response JSON schema. 
 - Use typescript for node functions.
 - Use Vertex AI with Firebase, instead of Google AI.
+- Always check if any imports are missing for new code after making changes
 
 ## Code Organization
 

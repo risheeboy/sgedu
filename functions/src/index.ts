@@ -233,4 +233,6 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
 
       return null;
     }
-  });
+  }
+);
+export * from './chat';
