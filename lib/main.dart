@@ -284,7 +284,7 @@ class _QuestionPageState extends State<QuestionPage> {
         questionsQuery = questionsQuery.where(FieldPath.documentId, whereNotIn: excludedQuestionIds);
       }
     } else {
-      //TODO ask to login, for not seeing questions again
+      //TODO ask to login, to avoid repeated questions
     }
 
     questionsQuery = questionsQuery.orderBy(FieldPath.documentId);
@@ -303,6 +303,11 @@ class _QuestionPageState extends State<QuestionPage> {
       final snapshot = await questionsQuery.get();
       if (snapshot.docs.isNotEmpty) {
         _lastDocument = snapshot.docs.last;
+        // Update browser history state for deep linking
+        final questionId = _lastDocument!.id;
+        final currentUri = Uri.parse(html.window.location.href);
+        final updatedUri = currentUri.replace(queryParameters: {'questionId': questionId});
+        html.window.history.replaceState(null, '', updatedUri.toString());
       }
       setState(() {
         _existingQuestions = snapshot.docs.map((doc) {
