@@ -297,6 +297,7 @@ class _QuestionPageState extends State<QuestionPage> {
 
     setState(() {
       _isLoading = true;
+      _generatedQuestions = null; // Clear generated list
     });
 
     try {
