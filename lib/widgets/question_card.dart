@@ -196,6 +196,10 @@ class _QuestionCardState extends State<QuestionCard> {
                               ),
                             );
                           }
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Please login to chat'))
+                          );
                         }
                       },
                     ),
