@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class ChatDialog extends StatefulWidget {
   final String chatSessionId;
@@ -132,16 +133,18 @@ class _ChatDialogState extends State<ChatDialog> {
                                       .secondaryContainer,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(
-                              message['content'] as String,
-                              style: TextStyle(
-                                color: isUser
-                                    ? Theme.of(context)
-                                        .colorScheme
-                                        .onPrimaryContainer
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .onSecondaryContainer,
+                            child: MarkdownBody(
+                              data: message['content'] as String,
+                              styleSheet: MarkdownStyleSheet(
+                                p: TextStyle(
+                                  color: isUser
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .onPrimaryContainer
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .onSecondaryContainer,
+                                ),
                               ),
                             ),
                           ),
