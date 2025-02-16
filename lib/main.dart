@@ -9,6 +9,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 import 'services/user_service.dart';
+import 'models/question.dart';
 
 Future<void> signInWithGoogle() async {
   final GoogleAuthProvider googleProvider = GoogleAuthProvider();
