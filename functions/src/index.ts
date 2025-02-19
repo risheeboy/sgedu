@@ -1,15 +1,22 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-//import { DocumentReference } from '@google-cloud/firestore';
 import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { OpenAI } from 'openai';
-
+import { VertexAI, SchemaType, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+
+// Initialize Firebase Admin
 admin.initializeApp();
 
-const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+// Initialize Vertex AI
+const vertexAI = new VertexAI({
+  project: 'edurishit',
+  location: 'us-central1'
+}); 
+
 // Define the RequestDoc interface
 interface RequestDoc {
   subject: string;
@@ -19,21 +26,6 @@ interface RequestDoc {
   error?: string;
   timestamp: admin.firestore.Timestamp;
 }
-
-/*
-// Define the QuestionDoc interface
-interface QuestionDoc {
-  question: string;
-  type: string;
-  explanation: string;
-  correctAnswer: string;
-  subject: string;
-  syllabus: string;
-  request: DocumentReference;
-  topics: string[];
-  timestamp: admin.firestore.Timestamp;
-}
-*/
 
 // Function to validate questions JSON structure
 function validateQuestionsJSON(data: any): boolean {
@@ -51,11 +43,35 @@ function validateQuestionJSON(q: any): boolean {
   return required.every(field => q.hasOwnProperty(field));
 }
 
+// Define schema for structured output
+const questionSchema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    questions: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          question: { type: SchemaType.STRING },
+          type: { type: SchemaType.STRING },
+          explanation: { type: SchemaType.STRING },
+          correctAnswer: { type: SchemaType.STRING },
+          topics: {
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING }
+          }
+        },
+        required: ["question", "type", "explanation", "correctAnswer"]
+      }
+    }
+  }
+};
+
 // Export the generateQuestions function
 export const generateQuestions = onDocumentWritten(
   {
     document: "requests/{requestId}",
-    region: "asia-southeast1",
+    region: "asia-southeast1",//TODO try us-central1
     secrets: [OPENAI_API_KEY]
   },
   async (event) => {
@@ -143,22 +159,79 @@ Ensure questions:
 
 Important: Return ONLY the JSON object, no other text or formatting.`;
       console.log("Singapore Education Prompt:", singaporeEducationPrompt);
-      // Generate questions using OpenAI
-      const completion = await openai.chat.completions.create({
-        model: 'o3-mini',
-        messages: [{
-          role: 'system',
-          content: singaporeEducationPrompt
-        }],
-        response_format: { type: 'json_object' }
-      });
       
-      // Add null safety checks here
-      const responseContent = completion?.choices?.[0]?.message?.content;
-      if (!responseContent) {
-        throw new Error("OpenAI API returned empty response content");
+      // Model selection based on subject
+      const needThinking = data.subject.toLowerCase().endsWith('mathematics');
+      let responseContent;
+
+      if (!needThinking) {
+        // Initialize the generative model
+        const model = vertexAI.preview.getGenerativeModel({
+          model: 'gemini-2.0-flash',
+          generationConfig: {
+            temperature: 0.5,
+            candidateCount: 1,
+            maxOutputTokens: 2048
+          },
+          safetySettings: [
+            {
+              category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+              threshold: HarmBlockThreshold.BLOCK_NONE
+            }
+          ]
+        });
+
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: singaporeEducationPrompt }] }],
+          tools: [{
+            functionDeclarations: [{
+              name: 'questions',
+              description: 'Generate exam questions',
+              parameters: questionSchema
+            }]
+          }]
+        });
+
+        const response = await result.response;
+        if (!response.candidates || response.candidates.length === 0) {
+          throw new Error('No response generated from Vertex AI');
+        }
+        responseContent = response.candidates[0].content.parts[0].text;
+      } else {
+        // Thinking model - OpenAI O3
+        const completion = await openai.chat.completions.create({
+          model: 'o3-mini',
+          messages: [{
+            role: 'system',
+            content: singaporeEducationPrompt
+          }],
+          response_format: { type: 'json_object' }
+        });
+        responseContent = completion?.choices?.[0]?.message?.content;
       }
-      const responseJSON = JSON.parse(responseContent);
+
+      // Add null safety checks here
+      if (!responseContent) {
+        throw new Error('API returned empty response content');
+      }
+
+      // Parse response (works for both models)
+      let responseJSON;
+      try {
+        responseJSON = JSON.parse(responseContent);
+      } catch (error) {
+        console.error('Failed to parse response:', responseContent);
+        await afterData.ref.update({
+          prompt: singaporeEducationPrompt,
+          response: responseContent,
+          modelName: !needThinking ? 'gemini-2.0-flash' : 'o3-mini',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          status: "error",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        throw new Error('Invalid JSON response');
+      }
+
       console.log("Raw OpenAI response:", JSON.stringify(responseJSON, null, 2));
       
       // Parse and validate the JSON response
@@ -181,6 +254,16 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
           }
         });
 
+        // Update request document with prompt and response details
+        await afterData.ref.update({
+          prompt: singaporeEducationPrompt,
+          response: responseContent,
+          modelName: !needThinking ? 'gemini-2.0-flash' : 'o3-mini',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          status: "received",
+          questionCount: parsedQuestions.questions.length
+        });
+
       } catch (error: unknown) {
         console.error("JSON parsing error:", error);
         console.error("Response was:", responseContent);
@@ -188,7 +271,15 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
         console.error("Response length:", responseContent.length);
         console.error("First 100 chars:", responseContent.substring(0, 100));
         console.error("Last 100 chars:", responseContent.substring(responseContent.length - 100));
-        
+
+        await afterData.ref.update({
+          prompt: singaporeEducationPrompt,
+          response: responseContent,
+          modelName: !needThinking ? 'gemini-2.0-flash' : 'o3-mini',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          status: "error",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         throw new Error(`Invalid JSON response from OpenAI API: ${errorMessage}`);
       }
