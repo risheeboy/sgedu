@@ -2,7 +2,7 @@ import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { OpenAI } from 'openai';
-import { VertexAI, SchemaType, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
+import { VertexAI, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
@@ -27,51 +27,25 @@ interface RequestDoc {
   timestamp: admin.firestore.Timestamp;
 }
 
-// Function to validate questions JSON structure
-function validateQuestionsJSON(data: any): boolean {
-  console.log('Validating questions structure');
-  if (!data?.questions || !Array.isArray(data.questions)) {
-    console.error('Missing questions array');
-    return false;
-  }
-  return true;
+// Define interfaces for type safety
+interface Question {
+  question: string;
+  answerChoices?: string[];
+  type: string;
+  explanation: string;
+  correctAnswer: string;
+  topics?: string[];
 }
 
-// Function to validate question JSON structure
-function validateQuestionJSON(q: any): boolean {
-  const required = ['question', 'type', 'explanation', 'correctAnswer'];
-  return required.every(field => q.hasOwnProperty(field));
+interface QuestionResponse {
+  questions: Question[];
 }
-
-// Define schema for structured output
-const questionSchema = {
-  type: SchemaType.OBJECT,
-  properties: {
-    questions: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          question: { type: SchemaType.STRING },
-          type: { type: SchemaType.STRING },
-          explanation: { type: SchemaType.STRING },
-          correctAnswer: { type: SchemaType.STRING },
-          topics: {
-            type: SchemaType.ARRAY,
-            items: { type: SchemaType.STRING }
-          }
-        },
-        required: ["question", "type", "explanation", "correctAnswer"]
-      }
-    }
-  }
-};
 
 // Export the generateQuestions function
 export const generateQuestions = onDocumentWritten(
   {
     document: "requests/{requestId}",
-    region: "asia-southeast1",//TODO try us-central1
+    region: "asia-southeast1",
     secrets: [OPENAI_API_KEY]
   },
   async (event) => {
@@ -82,7 +56,6 @@ export const generateQuestions = onDocumentWritten(
     
     const data = afterData.data() as RequestDoc;
 
-    // Only process documents with 'pending' status
     if (data.status !== "pending") {
       return null;
     }
@@ -158,20 +131,35 @@ Ensure questions:
 - Follow the same structure as the example JSON provided
 
 Important: Return ONLY the JSON object, no other text or formatting.`;
-      console.log("Singapore Education Prompt:", singaporeEducationPrompt);
       
-      // Model selection based on subject
-      const needThinking = data.subject.toLowerCase().endsWith('mathematics');
-      let responseContent;
+      // Build structured prompt for JSON output
+      const jsonStructurePrompt = `
+Return response in the following JSON structure:
+{
+  "questions": [
+    {
+      "question": "string",
+      "answerChoices": ["string"],
+      "type": "string",
+      "explanation": "string",
+      "correctAnswer": "string",
+      "topics": ["string"]
+    }
+  ]
+}
 
-      if (!needThinking) {
+${singaporeEducationPrompt}`;
+
+      let responseContent: string;
+      if (!data.subject.toLowerCase().endsWith('mathematics')) {
         // Initialize the generative model
         const model = vertexAI.preview.getGenerativeModel({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-2.0-pro-exp-02-05',
           generationConfig: {
             temperature: 0.5,
             candidateCount: 1,
-            maxOutputTokens: 2048
+            maxOutputTokens:8192,
+            responseMimeType: "application/json"
           },
           safetySettings: [
             {
@@ -182,19 +170,15 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
         });
 
         const result = await model.generateContent({
-          contents: [{ role: 'user', parts: [{ text: singaporeEducationPrompt }] }],
-          tools: [{
-            functionDeclarations: [{
-              name: 'questions',
-              description: 'Generate exam questions',
-              parameters: questionSchema
-            }]
-          }]
+          contents: [{ role: 'user', parts: [{ text: jsonStructurePrompt }] }]
         });
 
         const response = await result.response;
         if (!response.candidates || response.candidates.length === 0) {
           throw new Error('No response generated from Vertex AI');
+        }
+        if (!response.candidates[0].content.parts[0].text) {
+          throw new Error('Vertex AI returned empty response content');
         }
         responseContent = response.candidates[0].content.parts[0].text;
       } else {
@@ -203,89 +187,60 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
           model: 'o3-mini',
           messages: [{
             role: 'system',
-            content: singaporeEducationPrompt
+            content: jsonStructurePrompt
           }],
           response_format: { type: 'json_object' }
         });
-        responseContent = completion?.choices?.[0]?.message?.content;
+
+        // Directly check nested properties
+        if (!completion?.choices?.[0]?.message?.content) {
+          throw new Error('OpenAI returned empty response content');
+        }
+        responseContent = completion.choices[0].message.content;
       }
 
-      // Add null safety checks here
       if (!responseContent) {
         throw new Error('API returned empty response content');
       }
 
-      // Parse response (works for both models)
-      let responseJSON;
-      try {
-        responseJSON = JSON.parse(responseContent);
-      } catch (error) {
-        console.error('Failed to parse response:', responseContent);
-        await afterData.ref.update({
-          prompt: singaporeEducationPrompt,
-          response: responseContent,
-          modelName: !needThinking ? 'gemini-2.0-flash' : 'o3-mini',
-          error: error instanceof Error ? error.message : 'Unknown error',
-          status: "error",
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-        throw new Error('Invalid JSON response');
-      }
+      // Clean response content of any markdown formatting
+      const cleanResponse = responseContent
+      .replace(/^```json\s*/i, '')  // Remove opening ```json
+      .replace(/\s*```\s*$/i, '')   // Remove closing ```
+      .trim();
 
-      console.log("Raw OpenAI response:", JSON.stringify(responseJSON, null, 2));
+      // Always update the response content
+      await afterData.ref.update({
+        response: responseContent, // Keep original response for debugging
+        cleanResponse: cleanResponse, // Store cleaned version
+        modelName: !data.subject.toLowerCase().endsWith('mathematics') ? 'JSON Gemini 2.0 Experimental' : 'O3 Mini Thinking',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Parse and validate response
+      const parsedQuestions = JSON.parse(cleanResponse) as QuestionResponse;
       
-      // Parse and validate the JSON response
-      let parsedQuestions;
-      try {
-        parsedQuestions = responseJSON;
-        console.log("Parsed questions:", JSON.stringify(parsedQuestions, null, 2));
-        
-        // Validate the structure
-        if (!validateQuestionsJSON(parsedQuestions)) {
-          console.error("Invalid structure:", parsedQuestions);
-          throw new Error("Invalid response structure: missing questions array");
-        }
-
-        // Validate each question object
-        parsedQuestions.questions.forEach((q: any, index: number) => {
-          if (!validateQuestionJSON(q)) {
-            console.error(`Invalid question ${index + 1}:`, q);
-            throw new Error(`Question ${index + 1} is missing required fields`);
-          }
-        });
-
-        // Update request document with prompt and response details
-        await afterData.ref.update({
-          prompt: singaporeEducationPrompt,
-          response: responseContent,
-          modelName: !needThinking ? 'gemini-2.0-flash' : 'o3-mini',
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          status: "received",
-          questionCount: parsedQuestions.questions.length
-        });
-
-      } catch (error: unknown) {
-        console.error("JSON parsing error:", error);
-        console.error("Response was:", responseContent);
-        console.error("Response type:", typeof responseContent);
-        console.error("Response length:", responseContent.length);
-        console.error("First 100 chars:", responseContent.substring(0, 100));
-        console.error("Last 100 chars:", responseContent.substring(responseContent.length - 100));
-
-        await afterData.ref.update({
-          prompt: singaporeEducationPrompt,
-          response: responseContent,
-          modelName: !needThinking ? 'gemini-2.0-flash' : 'o3-mini',
-          error: error instanceof Error ? error.message : 'Unknown error',
-          status: "error",
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Invalid JSON response from OpenAI API: ${errorMessage}`);
+      // Validate required fields
+      if (!Array.isArray(parsedQuestions.questions)) {
+        throw new Error("Invalid response structure: questions must be an array");
       }
 
-      console.log("Parsed questions length:", parsedQuestions.questions.length);
-      // Create new questions documents for all the questions and save in questions collection
+      for (const q of parsedQuestions.questions) {
+        const requiredFields: (keyof Question)[] = ["question", "type", "explanation", "correctAnswer"];
+        for (const field of requiredFields) {
+          if (!q[field]) {
+            throw new Error(`Question is missing required field: ${field}`);
+          }
+        }
+        
+        // Validate answer choices if present
+        if (q.answerChoices && (!Array.isArray(q.answerChoices) || 
+            !q.answerChoices.every(choice => typeof choice === "string"))) {
+          throw new Error("Answer choices must be an array of strings");
+        }
+      }
+
+      // Create questions in Firestore
       const promises = parsedQuestions.questions.map((q: any, index: number) => {
         console.log(`Creating question ${index + 1}: ${q.question}`);
 
@@ -298,32 +253,33 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
           subject: data.subject,
           syllabus: data.syllabus,
           request: afterData.ref,
-          topics: data.topic?.trim() ? [data.topic.trim().toLowerCase().replace(/[\s-]/g, '')] : [], //TODO : pick from pre-defined topics
+          topics: (q.topics || []),
+          answerChoices: q.answerChoices || [],
           timestamp: admin.firestore.Timestamp.now()
         });
       });
+
       await Promise.all(promises);
       console.log("Created Questions");
-      
-      // Update the request document
+
+      // Update final success status
       await afterData.ref.update({
         status: "completed",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        questionCount: parsedQuestions.questions.length,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      return null;
     } catch (error) {
-      console.error("Error generating questions:", error);
-
-      // Update document with error status
+      console.error("Error processing response:", error);
+      // Update error status but preserve the prompt and response
       await afterData.ref.update({
         status: "error",
         error: error instanceof Error ? error.message : "Unknown error occurred",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
-
-      return null;
     }
+
+    return null;
   }
 );
 export * from './chat';
