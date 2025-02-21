@@ -30,11 +30,11 @@ interface RequestDoc {
 // Define interfaces for type safety
 interface Question {
   question: string;
-  answerChoices?: string[];
   type: string;
   explanation: string;
   correctAnswer: string;
-  topics?: string[];
+  topics: string[];
+  mcqChoices?: string[];
 }
 
 interface QuestionResponse {
@@ -112,7 +112,9 @@ Your response must be a valid JSON object with exactly this structure:
       "question": "string",
       "type": "string (MCQ/Short Answer/Structured/Application)",
       "explanation": "string",
-      "correctAnswer": "string"
+      "correctAnswer": "string",
+      "topics": ["string"],
+      "mcqChoices": ["string"]
     }
   ]
 }
@@ -134,16 +136,16 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
       
       // Build structured prompt for JSON output
       const jsonStructurePrompt = `
-Return response in the following JSON structure:
+Return response in the following JSON structure (mcqChoices is required only for type MCQ):
 {
   "questions": [
     {
       "question": "string",
-      "answerChoices": ["string"],
-      "type": "string",
+      "type": "string (MCQ/Short Answer/Structured/Application)",
       "explanation": "string",
       "correctAnswer": "string",
-      "topics": ["string"]
+      "topics": ["string"],
+      "mcqChoices": ["string"]
     }
   ]
 }
@@ -226,7 +228,7 @@ ${singaporeEducationPrompt}`;
       }
 
       for (const q of parsedQuestions.questions) {
-        const requiredFields: (keyof Question)[] = ["question", "type", "explanation", "correctAnswer"];
+        const requiredFields: (keyof Question)[] = ["question", "type", "explanation", "correctAnswer", "topics"];
         for (const field of requiredFields) {
           if (!q[field]) {
             throw new Error(`Question is missing required field: ${field}`);
@@ -234,9 +236,10 @@ ${singaporeEducationPrompt}`;
         }
         
         // Validate answer choices if present
-        if (q.answerChoices && (!Array.isArray(q.answerChoices) || 
-            !q.answerChoices.every(choice => typeof choice === "string"))) {
-          throw new Error("Answer choices must be an array of strings");
+        if (q.mcqChoices && (!Array.isArray(q.mcqChoices) || 
+            !q.mcqChoices.every(choice => typeof choice === "string"))) {
+          console.error("Invalid mcqChoices: must be an array of strings. Removing mcqChoices.");
+          delete q.mcqChoices;
         }
       }
 
@@ -253,8 +256,8 @@ ${singaporeEducationPrompt}`;
           subject: data.subject,
           syllabus: data.syllabus,
           request: afterData.ref,
-          topics: (q.topics || []),
-          answerChoices: q.answerChoices || [],
+          topics: q.topics,
+          mcqChoices: (q.mcqChoices || []),
           timestamp: admin.firestore.Timestamp.now()
         });
       });
