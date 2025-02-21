@@ -1,15 +1,22 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-//import { DocumentReference } from '@google-cloud/firestore';
 import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { OpenAI } from 'openai';
-
+import { VertexAI, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+
+// Initialize Firebase Admin
 admin.initializeApp();
 
-const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+// Initialize Vertex AI
+const vertexAI = new VertexAI({
+  project: 'edurishit',
+  location: 'us-central1'
+}); 
+
 // Define the RequestDoc interface
 interface RequestDoc {
   subject: string;
@@ -20,35 +27,18 @@ interface RequestDoc {
   timestamp: admin.firestore.Timestamp;
 }
 
-/*
-// Define the QuestionDoc interface
-interface QuestionDoc {
+// Define interfaces for type safety
+interface Question {
   question: string;
   type: string;
   explanation: string;
   correctAnswer: string;
-  subject: string;
-  syllabus: string;
-  request: DocumentReference;
   topics: string[];
-  timestamp: admin.firestore.Timestamp;
-}
-*/
-
-// Function to validate questions JSON structure
-function validateQuestionsJSON(data: any): boolean {
-  console.log('Validating questions structure');
-  if (!data?.questions || !Array.isArray(data.questions)) {
-    console.error('Missing questions array');
-    return false;
-  }
-  return true;
+  mcqChoices?: string[];
 }
 
-// Function to validate question JSON structure
-function validateQuestionJSON(q: any): boolean {
-  const required = ['question', 'type', 'explanation', 'correctAnswer'];
-  return required.every(field => q.hasOwnProperty(field));
+interface QuestionResponse {
+  questions: Question[];
 }
 
 // Export the generateQuestions function
@@ -66,7 +56,6 @@ export const generateQuestions = onDocumentWritten(
     
     const data = afterData.data() as RequestDoc;
 
-    // Only process documents with 'pending' status
     if (data.status !== "pending") {
       return null;
     }
@@ -123,7 +112,9 @@ Your response must be a valid JSON object with exactly this structure:
       "question": "string",
       "type": "string (MCQ/Short Answer/Structured/Application)",
       "explanation": "string",
-      "correctAnswer": "string"
+      "correctAnswer": "string",
+      "topics": ["string"],
+      "mcqChoices": ["string"]
     }
   ]
 }
@@ -142,59 +133,117 @@ Ensure questions:
 - Follow the same structure as the example JSON provided
 
 Important: Return ONLY the JSON object, no other text or formatting.`;
-      console.log("Singapore Education Prompt:", singaporeEducationPrompt);
-      // Generate questions using OpenAI
-      const completion = await openai.chat.completions.create({
-        model: 'o3-mini',
-        messages: [{
-          role: 'system',
-          content: singaporeEducationPrompt
-        }],
-        response_format: { type: 'json_object' }
-      });
       
-      // Add null safety checks here
-      const responseContent = completion?.choices?.[0]?.message?.content;
-      if (!responseContent) {
-        throw new Error("OpenAI API returned empty response content");
-      }
-      const responseJSON = JSON.parse(responseContent);
-      console.log("Raw OpenAI response:", JSON.stringify(responseJSON, null, 2));
-      
-      // Parse and validate the JSON response
-      let parsedQuestions;
-      try {
-        parsedQuestions = responseJSON;
-        console.log("Parsed questions:", JSON.stringify(parsedQuestions, null, 2));
-        
-        // Validate the structure
-        if (!validateQuestionsJSON(parsedQuestions)) {
-          console.error("Invalid structure:", parsedQuestions);
-          throw new Error("Invalid response structure: missing questions array");
-        }
+      // Build structured prompt for JSON output
+      const jsonStructurePrompt = `
+Return response in the following JSON structure (mcqChoices is required only for type MCQ):
+{
+  "questions": [
+    {
+      "question": "string",
+      "type": "string (MCQ/Short Answer/Structured/Application)",
+      "explanation": "string",
+      "correctAnswer": "string",
+      "topics": ["string"],
+      "mcqChoices": ["string"]
+    }
+  ]
+}
 
-        // Validate each question object
-        parsedQuestions.questions.forEach((q: any, index: number) => {
-          if (!validateQuestionJSON(q)) {
-            console.error(`Invalid question ${index + 1}:`, q);
-            throw new Error(`Question ${index + 1} is missing required fields`);
-          }
+${singaporeEducationPrompt}`;
+
+      let responseContent: string;
+      if (!data.subject.toLowerCase().endsWith('mathematics')) {
+        // Initialize the generative model
+        const model = vertexAI.preview.getGenerativeModel({
+          model: 'gemini-2.0-pro-exp-02-05',
+          generationConfig: {
+            temperature: 0.5,
+            candidateCount: 1,
+            maxOutputTokens:8192,
+            responseMimeType: "application/json"
+          },
+          safetySettings: [
+            {
+              category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+              threshold: HarmBlockThreshold.BLOCK_NONE
+            }
+          ]
         });
 
-      } catch (error: unknown) {
-        console.error("JSON parsing error:", error);
-        console.error("Response was:", responseContent);
-        console.error("Response type:", typeof responseContent);
-        console.error("Response length:", responseContent.length);
-        console.error("First 100 chars:", responseContent.substring(0, 100));
-        console.error("Last 100 chars:", responseContent.substring(responseContent.length - 100));
-        
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Invalid JSON response from OpenAI API: ${errorMessage}`);
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: jsonStructurePrompt }] }]
+        });
+
+        const response = await result.response;
+        if (!response.candidates || response.candidates.length === 0) {
+          throw new Error('No response generated from Vertex AI');
+        }
+        if (!response.candidates[0].content.parts[0].text) {
+          throw new Error('Vertex AI returned empty response content');
+        }
+        responseContent = response.candidates[0].content.parts[0].text;
+      } else {
+        // Thinking model - OpenAI O3
+        const completion = await openai.chat.completions.create({
+          model: 'o3-mini',
+          messages: [{
+            role: 'system',
+            content: jsonStructurePrompt
+          }],
+          response_format: { type: 'json_object' }
+        });
+
+        // Directly check nested properties
+        if (!completion?.choices?.[0]?.message?.content) {
+          throw new Error('OpenAI returned empty response content');
+        }
+        responseContent = completion.choices[0].message.content;
       }
 
-      console.log("Parsed questions length:", parsedQuestions.questions.length);
-      // Create new questions documents for all the questions and save in questions collection
+      if (!responseContent) {
+        throw new Error('API returned empty response content');
+      }
+
+      // Clean response content of any markdown formatting
+      const cleanResponse = responseContent
+      .replace(/^```json\s*/i, '')  // Remove opening ```json
+      .replace(/\s*```\s*$/i, '')   // Remove closing ```
+      .trim();
+
+      // Always update the response content
+      await afterData.ref.update({
+        response: responseContent, // Keep original response for debugging
+        cleanResponse: cleanResponse, // Store cleaned version
+        modelName: !data.subject.toLowerCase().endsWith('mathematics') ? 'JSON Gemini 2.0 Experimental' : 'O3 Mini Thinking',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Parse and validate response
+      const parsedQuestions = JSON.parse(cleanResponse) as QuestionResponse;
+      
+      // Validate required fields
+      if (!Array.isArray(parsedQuestions.questions)) {
+        throw new Error("Invalid response structure: questions must be an array");
+      }
+
+      for (const q of parsedQuestions.questions) {
+        const requiredFields: (keyof Question)[] = ["question", "type", "explanation", "correctAnswer", "topics"];
+        for (const field of requiredFields) {
+          if (!q[field]) {
+            throw new Error(`Question is missing required field: ${field}`);
+          }
+        }
+        
+        // Validate answer choices if present
+        if (q.mcqChoices && (!Array.isArray(q.mcqChoices) || 
+            !q.mcqChoices.every(choice => typeof choice === "string"))) {
+          console.error("Invalid mcqChoices: must be an array of strings. Removing mcqChoices.");
+          delete q.mcqChoices;
+        }
+      }
+
+      // Create questions in Firestore
       const promises = parsedQuestions.questions.map((q: any, index: number) => {
         console.log(`Creating question ${index + 1}: ${q.question}`);
 
@@ -207,32 +256,33 @@ Important: Return ONLY the JSON object, no other text or formatting.`;
           subject: data.subject,
           syllabus: data.syllabus,
           request: afterData.ref,
-          topics: data.topic?.trim() ? [data.topic.trim().toLowerCase().replace(/[\s-]/g, '')] : [], //TODO : pick from pre-defined topics
+          topics: q.topics,
+          mcqChoices: (q.mcqChoices || []),
           timestamp: admin.firestore.Timestamp.now()
         });
       });
+
       await Promise.all(promises);
       console.log("Created Questions");
-      
-      // Update the request document
+
+      // Update final success status
       await afterData.ref.update({
         status: "completed",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        questionCount: parsedQuestions.questions.length,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      return null;
     } catch (error) {
-      console.error("Error generating questions:", error);
-
-      // Update document with error status
+      console.error("Error processing response:", error);
+      // Update error status but preserve the prompt and response
       await afterData.ref.update({
         status: "error",
         error: error instanceof Error ? error.message : "Unknown error occurred",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
-
-      return null;
     }
+
+    return null;
   }
 );
 export * from './chat';
