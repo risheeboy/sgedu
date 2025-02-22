@@ -11,11 +11,13 @@ import 'chat_dialog.dart';
 class QuestionCard extends StatefulWidget {
   final dynamic question;
   final int index;
+  final TextEditingController topicController;
 
   const QuestionCard({
     super.key, 
     required this.question,
     required this.index,
+    required this.topicController,
   });
 
   @override
@@ -275,6 +277,7 @@ class _QuestionCardState extends State<QuestionCard> {
                 children: widget.question.topics.map<Widget>((topic) => ActionChip(
                   label: Text(topic),
                   onPressed: () async {
+                    widget.topicController.text = topic;
                     final questions = await QuestionService().getQuestions(
                       syllabus: widget.question.syllabus,
                       subject: widget.question.subject,

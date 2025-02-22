@@ -344,7 +344,11 @@ class _QuestionPageState extends State<QuestionPage> {
         itemCount: _generatedQuestions!.length,
         itemBuilder: (context, index) {
           final question = _generatedQuestions![index];
-          return QuestionCard(question: question, index: index);
+          return QuestionCard(
+            question: question,
+            index: index,
+            topicController: _topicController, // Pass the controller
+          );
         },
       );
     } else if (_existingQuestions != null && _existingQuestions!.isNotEmpty) {
@@ -352,7 +356,11 @@ class _QuestionPageState extends State<QuestionPage> {
         itemCount: _existingQuestions!.length,
         itemBuilder: (context, index) {
           final question = _existingQuestions![index];
-          return QuestionCard(question: question, index: index);
+          return QuestionCard(
+            question: question,
+            index: index,
+            topicController: _topicController, // Pass the controller
+          );
         },
       );
     } else {
