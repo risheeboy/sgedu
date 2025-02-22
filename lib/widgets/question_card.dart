@@ -1,10 +1,12 @@
+import 'dart:html' as html;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/feedback_service.dart';
-import 'chat_dialog.dart';
 import '../services/quiz_service.dart'; 
+import '../services/question_service.dart';
+import 'chat_dialog.dart';
 
 class QuestionCard extends StatefulWidget {
   final dynamic question;
@@ -264,6 +266,28 @@ class _QuestionCardState extends State<QuestionCard> {
               data: widget.question.question,
               styleSheet: MarkdownStyleSheet(
                 p: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Wrap(
+                spacing: 8.0,
+                children: widget.question.topics.map<Widget>((topic) => ActionChip(
+                  label: Text(topic),
+                  onPressed: () async {
+                    final questions = await QuestionService().getQuestions(
+                      syllabus: widget.question.syllabus,
+                      subject: widget.question.subject,
+                      topic: topic,
+                    );
+                    if (questions.isNotEmpty) {
+                      final firstQuestionId = questions.first.id;
+                      final newUrl = Uri.base.replace(queryParameters: {'questionId': firstQuestionId.toString()}).toString();
+                      html.window.history.pushState(null, 'Question', newUrl);
+                    }
+                    print('Fetched questions for $topic: $questions');
+                  },
+                )).toList(),
               ),
             ),
             if (_showAnswer) ...[
