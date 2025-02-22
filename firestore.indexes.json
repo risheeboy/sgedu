@@ -31,8 +31,9 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "topic",
-          "order": "ASCENDING"
+          "fieldPath": "topics",
+          "order": "ASCENDING",
+          "arrayConfig": "CONTAINS"
         },
         {
           "fieldPath": "timestamp",
@@ -50,10 +51,6 @@
         },
         {
           "fieldPath": "subject",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "__name__",
           "order": "ASCENDING"
         }
       ]

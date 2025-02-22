@@ -76,15 +76,15 @@ class QuestionService {
           .where('subject', isEqualTo: subject);
       
       if (topic != null) {
-        query = query.where('topic', isEqualTo: topic);
+        query = query.where('topics', arrayContains: topic);
       }
 
       // Add orderBy clauses for all fields used in startAfter
       query = query.orderBy('timestamp', descending: true);
-      
+
       // Calculate skip based on page number and limit
       int skip = (page - 1) * limit;
-      
+
       // First get the last document of the previous page
       if (skip > 0) {
         QuerySnapshot skipDocs = await query.limit(skip).get();
