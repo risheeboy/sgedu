@@ -61,6 +61,26 @@ class MyApp extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Edu🦦Thingz'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: 'Share',
+              onPressed: () {
+                final currentUrl = html.window.location.href;
+                try {
+                  // Try using Web Share API
+                  html.window.navigator.share({'url': currentUrl});
+                } catch (e) {
+                  // Fallback to clipboard
+                  html.window.navigator.clipboard?.writeText(currentUrl);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Link copied to clipboard'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
             StreamBuilder<User?>(
               stream: FirebaseAuth.instance.authStateChanges(),
               builder: (context, snapshot) {
