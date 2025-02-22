@@ -175,6 +175,7 @@ class _QuestionPageState extends State<QuestionPage> {
   @override
   void initState() {
     super.initState();
+    _topicController.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleDeepLink());
   }
 
