@@ -32,26 +32,11 @@
         },
         {
           "fieldPath": "topics",
-          "order": "ASCENDING",
           "arrayConfig": "CONTAINS"
         },
         {
           "fieldPath": "timestamp",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "questions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "syllabus",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "subject",
-          "order": "ASCENDING"
         }
       ]
     },

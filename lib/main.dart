@@ -261,6 +261,7 @@ class _QuestionPageState extends State<QuestionPage> {
   }
 
   Future<void> _getExistingQuestions() async {
+    print('Fetching existing questions for syllabus: $_selectedSyllabus, subject: $_selectedSubject, topic: ${_topicController.text}, page: $_currentPage, lastDocument: $_lastDocument');
     // Validate inputs
     if (_selectedSubject == null || _selectedSyllabus == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -276,10 +277,10 @@ class _QuestionPageState extends State<QuestionPage> {
         .collection('questions')
         .where('syllabus', isEqualTo: _selectedSyllabus)
         .where('subject', isEqualTo: _selectedSubject);
-
+    
     // Add topic filter if topic is provided
     if (_topicController.text.trim().isNotEmpty) {
-      final normalizedTopic = _topicController.text.trim().toLowerCase().replaceAll(RegExp(r'[\s-]'), '');
+      final normalizedTopic = _topicController.text.trim();
       questionsQuery = questionsQuery.where('topics', arrayContains: normalizedTopic);
     }
 
@@ -309,7 +310,8 @@ class _QuestionPageState extends State<QuestionPage> {
     }
 
     questionsQuery = questionsQuery.orderBy(FieldPath.documentId);
-    if (_currentPage > 0 && _lastDocument != null) {
+    if (_currentPage > 1 && _lastDocument != null) {
+      print('Fetching existing questions: page $_currentPage, last document: ${_lastDocument}');
       questionsQuery = questionsQuery.startAfterDocument(_lastDocument!).limit(_pageSize);
     } else {
       questionsQuery = questionsQuery.limit(_pageSize);
@@ -317,19 +319,13 @@ class _QuestionPageState extends State<QuestionPage> {
 
     setState(() {
       _isLoading = true;
-      _generatedQuestions = null; // Clear generated list
+      _generatedQuestions = null;
+      _existingQuestions = null;
     });
+    html.window.history.replaceState(null, '', html.window.location.href);
 
     try {
       final snapshot = await questionsQuery.get();
-      if (snapshot.docs.isNotEmpty) {
-        _lastDocument = snapshot.docs.last;
-        // Update browser history state for deep linking
-        final questionId = _lastDocument!.id;
-        final currentUri = Uri.parse(html.window.location.href);
-        final updatedUri = currentUri.replace(queryParameters: {'questionId': questionId});
-        html.window.history.replaceState(null, '', updatedUri.toString());
-      }
       setState(() {
         _existingQuestions = snapshot.docs.map((doc) {
           final data = doc.data();
@@ -344,6 +340,13 @@ class _QuestionPageState extends State<QuestionPage> {
             content: Text('No new questions found'),
           ),
         );
+      } else {
+        _lastDocument = snapshot.docs.last;
+        final questionId = _lastDocument!.id;
+        print('Updating browser history state with question ID: $questionId');
+        final currentUri = Uri.parse(html.window.location.href);
+        final updatedUri = currentUri.replace(queryParameters: {'questionId': questionId});
+        html.window.history.replaceState(null, '', updatedUri.toString());
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -448,6 +451,8 @@ class _QuestionPageState extends State<QuestionPage> {
                                   _selectedSubject = value;
                                 });
                                 if (value != null) {
+                                  _lastDocument = null;
+                                  _currentPage = 1;
                                   _getExistingQuestions();
                                 }
                               },
@@ -498,6 +503,8 @@ class _QuestionPageState extends State<QuestionPage> {
                                 _selectedSubject = value;
                               });
                               if (value != null) {
+                                _lastDocument = null;
+                                _currentPage = 1;
                                 _getExistingQuestions();
                               }
                             },
@@ -526,7 +533,15 @@ class _QuestionPageState extends State<QuestionPage> {
                     SizedBox(
                       height: 56, // Match text field height
                       child: ElevatedButton(
-                        onPressed: (_isLoading || _topicController.text.trim().isEmpty) ? null : _getExistingQuestions,
+                        onPressed: () {
+                          if (_isLoading || _topicController.text.trim().isEmpty) {
+                            return null;
+                          } else {
+                            _lastDocument = null;
+                            _currentPage = 1;
+                            _getExistingQuestions();
+                          }
+                        },
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                         ),

@@ -278,17 +278,6 @@ class _QuestionCardState extends State<QuestionCard> {
                   label: Text(topic),
                   onPressed: () async {
                     widget.topicController.text = topic;
-                    final questions = await QuestionService().getQuestions(
-                      syllabus: widget.question.syllabus,
-                      subject: widget.question.subject,
-                      topic: topic,
-                    );
-                    if (questions.isNotEmpty) {
-                      final firstQuestionId = questions.first.id;
-                      final newUrl = Uri.base.replace(queryParameters: {'questionId': firstQuestionId.toString()}).toString();
-                      html.window.history.pushState(null, 'Question', newUrl);
-                    }
-                    print('Fetched questions for $topic: $questions');
                   },
                 )).toList(),
               ),
