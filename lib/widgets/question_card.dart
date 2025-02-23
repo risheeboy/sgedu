@@ -3,8 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/quiz.dart';
+import '../services/quiz_service.dart';
 import '../services/feedback_service.dart';
-import '../services/quiz_service.dart'; 
 import '../services/question_service.dart';
 import 'chat_dialog.dart';
 
@@ -153,14 +154,14 @@ class _QuestionCardState extends State<QuestionCard> {
 
     await showDialog(
       context: context,
-      builder: (context) => StreamBuilder<QuerySnapshot>(
+      builder: (context) => StreamBuilder<List<Quiz>>(
         stream: quizService.getUserQuizzesStream(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final quizzes = snapshot.data!.docs;
+          final quizzes = snapshot.data!;
           
           return StatefulBuilder(
             builder: (context, setState) => AlertDialog(
@@ -170,34 +171,31 @@ class _QuestionCardState extends State<QuestionCard> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ...quizzes.map((quiz) {
-                      final data = quiz.data() as Map<String, dynamic>;
-                      return CheckboxListTile(
-                        title: Text(data['name'] as String),
-                        value: _selectedQuizIds.contains(quiz.id),
-                        onChanged: _updatingQuizzes 
-                          ? null 
-                          : (checked) async {
-                              setState(() => _updatingQuizzes = true);
-                              try {
-                                await quizService.toggleQuestionInQuiz(
-                                  quizId: quiz.id,
-                                  questionId: widget.question.id,
-                                  add: checked!,
-                                );
-                                setState(() {
-                                  if (checked) {
-                                    _selectedQuizIds.add(quiz.id);
-                                  } else {
-                                    _selectedQuizIds.remove(quiz.id);
-                                  }
-                                });
-                              } finally {
-                                setState(() => _updatingQuizzes = false);
-                              }
-                            },
-                      );
-                    }),
+                    ...quizzes.map((quiz) => CheckboxListTile(
+                      title: Text(quiz.name),
+                      value: _selectedQuizIds.contains(quiz.id),
+                      onChanged: _updatingQuizzes 
+                        ? null 
+                        : (checked) async {
+                            setState(() => _updatingQuizzes = true);
+                            try {
+                              await quizService.toggleQuestionInQuiz(
+                                quizId: quiz.id,
+                                questionId: widget.question.id,
+                                add: checked!,
+                              );
+                              setState(() {
+                                if (checked) {
+                                  _selectedQuizIds.add(quiz.id);
+                                } else {
+                                  _selectedQuizIds.remove(quiz.id);
+                                }
+                              });
+                            } finally {
+                              setState(() => _updatingQuizzes = false);
+                            }
+                          },
+                    )),
                     if (quizzes.isEmpty)
                       const Text('No quizzes yet. Create one below.'),
                   ],
@@ -439,7 +437,7 @@ class _QuizDropdownState extends State<QuizDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<List<Quiz>>(
       stream: QuizService().getUserQuizzesStream(),
       builder: (context, snapshot) {
         // Create default items that are always present
@@ -460,13 +458,10 @@ class _QuizDropdownState extends State<QuizDropdown> {
 
         // Add quiz items if data is available
         if (snapshot.hasData) {
-          items.insertAll(1, snapshot.data!.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return DropdownMenuItem<String>(
-              value: doc.id,
-              child: Text(data['name'] as String),
-            );
-          }));
+          items.insertAll(1, snapshot.data!.map((quiz) => DropdownMenuItem<String>(
+            value: quiz.id,
+            child: Text(quiz.name),
+          )));
         }
 
         // If the selected value is not in the items list, reset to empty
