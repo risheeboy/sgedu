@@ -47,8 +47,8 @@ class Question {
       correctAnswer: data['correctAnswer'] as String,
       subject: data['subject'] as String,
       syllabus: data['syllabus'] as String,
-      request: null,
-      topics: null,
+      request: data['request'] as DocumentReference?,
+      topics: (data['topics'] as List<dynamic>?)?.cast<String>(),
     );
   }
 }
