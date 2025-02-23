@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:html' as html;
 import 'widgets/question_card.dart';
-import 'services/question_service.dart'; // Ensure Question model is accessible
+import 'services/question_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -38,7 +38,6 @@ void main() async {
   );
   FirebaseAuth.instance.authStateChanges().listen((User? user) async {
     if (user != null) {
-      // Existing login logic
       await UserService.updateLastLogin(user.uid);
     }
   });
@@ -305,8 +304,6 @@ class _QuestionPageState extends State<QuestionPage> {
       if (excludedQuestionIds.isNotEmpty) {
         questionsQuery = questionsQuery.where(FieldPath.documentId, whereNotIn: excludedQuestionIds);
       }
-    } else {
-      //TODO ask to login, to avoid repeated questions
     }
 
     questionsQuery = questionsQuery.orderBy(FieldPath.documentId);
@@ -363,7 +360,7 @@ class _QuestionPageState extends State<QuestionPage> {
   }
 
   Widget _buildQuestionsList() {
-    if (_generatedQuestions != null && _generatedQuestions!.isNotEmpty) {
+    if (_generatedQuestions != null && _generatedQuestions!.isNotEmpty) {//show generated questions
       return ListView.builder(
         itemCount: _generatedQuestions!.length,
         itemBuilder: (context, index) {
@@ -371,11 +368,11 @@ class _QuestionPageState extends State<QuestionPage> {
           return QuestionCard(
             question: question,
             index: index,
-            topicController: _topicController, // Pass the controller
+            topicController: _topicController,
           );
         },
       );
-    } else if (_existingQuestions != null && _existingQuestions!.isNotEmpty) {
+    } else if (_existingQuestions != null && _existingQuestions!.isNotEmpty) {//show existing questions
       return ListView.builder(
         itemCount: _existingQuestions!.length,
         itemBuilder: (context, index) {
@@ -383,7 +380,7 @@ class _QuestionPageState extends State<QuestionPage> {
           return QuestionCard(
             question: question,
             index: index,
-            topicController: _topicController, // Pass the controller
+            topicController: _topicController,
           );
         },
       );
@@ -404,7 +401,7 @@ class _QuestionPageState extends State<QuestionPage> {
             children: [
               LayoutBuilder(
                 builder: (context, constraints) {
-                  if (constraints.maxWidth > 600) {
+                  if (constraints.maxWidth > 600) {//wide screen
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -460,7 +457,7 @@ class _QuestionPageState extends State<QuestionPage> {
                           ),
                       ],
                     );
-                  } else {
+                  } else {//narrow screen
                     return Column(
                       children: [
                         DropdownButtonFormField<String>(
