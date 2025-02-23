@@ -23,14 +23,15 @@
 - AI & embedding APIs should be called from inside Firebase functions and not from the flutter UI code. 
 - LLM text generation API calls should include response JSON schema. 
 - Use typescript for node functions.
-- Use Vertex AI with Firebase, instead of Google AI.
 - Always check if any imports are missing for new code after making changes
 
 ## Code Organization
 
 ### Key Directories
 
-- Flutter services layer for Firebase interactions (`lib/services/`)
+- Flutter services for Firebase interactions (`lib/services/`)
+- Flutter data models (`lib/models/`)
+- Flutter screens for different routes (`lib/screens/`)
 - Flutter reusable UI components (`lib/widgets/`)
 - Flutter integration tests in (`lib/testing/integration/`)
 
