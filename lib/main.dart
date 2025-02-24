@@ -1,4 +1,5 @@
 // Import dart:math for the min function
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:html' as html;
@@ -14,6 +15,7 @@ import 'screens/question_page.dart';
 import 'screens/quiz_screen.dart';
 import 'services/quiz_service.dart';
 import 'models/quiz.dart';
+import 'widgets/quiz_list_dialog.dart';
 
 Future<void> signInWithGoogle() async {
   final GoogleAuthProvider googleProvider = GoogleAuthProvider();
@@ -78,6 +80,32 @@ class MyApp extends StatelessWidget {
             appBar: AppBar(
               title: const Text('Edu🦦Thingz'),
               actions: [
+                // Quizzes dropdown button
+                StreamBuilder<User?>(
+                  stream: FirebaseAuth.instance.authStateChanges(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.active) {
+                      final user = snapshot.data;
+                      if (user != null) {
+                        return IconButton(
+                          icon: const Icon(Icons.quiz),
+                          tooltip: 'Your Quizzes',
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) => const QuizListDialog(),
+                            );
+                          },
+                        );
+                      } else {
+                        return const SizedBox.shrink();
+                      }
+                    }
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.share),
                   tooltip: 'Share',
@@ -124,99 +152,7 @@ class MyApp extends StatelessWidget {
                 ),
               ],
             ),
-            body: Row(
-              children: [
-                // Main content area (Question Page) - takes 70% of the width
-                const Expanded(
-                  flex: 7,
-                  child: QuestionPage(),
-                ),
-                // Right sidebar with quizzes - takes 30% of the width
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(
-                          color: Theme.of(context).dividerColor,
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            'Your Quizzes',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ),
-                        Expanded(
-                          child: StreamBuilder<User?>(
-                            stream: FirebaseAuth.instance.authStateChanges(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.active) {
-                                final user = snapshot.data;
-                                if (user != null) {
-                                  return StreamBuilder<List<Quiz>>(
-                                    stream: QuizService().getUserQuizzesStream(),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.hasData) {
-                                        final quizzes = snapshot.data!;
-                                        if (quizzes.isEmpty) {
-                                          return const Center(
-                                            child: Text('No quizzes yet'),
-                                          );
-                                        }
-                                        return ListView.builder(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                          itemCount: quizzes.length,
-                                          itemBuilder: (context, index) {
-                                            final quiz = quizzes[index];
-                                            return Card(
-                                              margin: const EdgeInsets.only(bottom: 8.0),
-                                              child: ListTile(
-                                                title: Text(
-                                                  quiz.name,
-                                                  style: Theme.of(context).textTheme.bodyMedium,
-                                                ),
-                                                subtitle: Text(
-                                                  '${quiz.questionIds.length} questions',
-                                                  style: Theme.of(context).textTheme.bodySmall,
-                                                ),
-                                                onTap: () {
-                                                  Navigator.pushNamed(
-                                                    context,
-                                                    '/quiz/${quiz.id}',
-                                                  );
-                                                },
-                                              ),
-                                            );
-                                          },
-                                        );
-                                      }
-                                      return const Center(
-                                        child: CircularProgressIndicator(),
-                                      );
-                                    },
-                                  );
-                                }
-                                return const Center(
-                                  child: Text('Sign in to view your quizzes'),
-                                );
-                              }
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            body: const QuestionPage(),
           ),
         );
       },
