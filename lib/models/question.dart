@@ -11,6 +11,7 @@ class Question {
   final String syllabus;
   final DocumentReference? request;
   final List<String>? topics;
+  final List<String>? mcqChoices;
 
   Question({
     required this.question,
@@ -22,6 +23,7 @@ class Question {
     this.request,
     this.topics,
     this.id,
+    this.mcqChoices,
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class Question {
       syllabus: json['syllabus'] as String,
       request: json['request'] as DocumentReference?,
       topics: (json['topics'] as List<dynamic>?)?.cast<String>(),
+      mcqChoices: (json['mcqChoices'] as List<dynamic>?)?.cast<String>(),
     );
   }
 
@@ -49,6 +52,7 @@ class Question {
       syllabus: data['syllabus'] as String,
       request: data['request'] as DocumentReference?,
       topics: (data['topics'] as List<dynamic>?)?.cast<String>(),
+      mcqChoices: (data['mcqChoices'] as List<dynamic>?)?.cast<String>(),
     );
   }
 }

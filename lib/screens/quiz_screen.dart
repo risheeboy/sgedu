@@ -25,6 +25,8 @@ class _QuizScreenState extends State<QuizScreen> {
   int _currentQuestionIndex = 0;
   bool _loading = true;
   String? _error;
+  bool _showAnswer = false;
+  String? _selectedMcqOption;
 
   @override
   void initState() {
@@ -72,6 +74,8 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_questions != null && _currentQuestionIndex < _questions!.length - 1) {
       setState(() {
         _currentQuestionIndex++;
+        _showAnswer = false;
+        _selectedMcqOption = null;
       });
     }
   }
@@ -80,8 +84,17 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_currentQuestionIndex > 0) {
       setState(() {
         _currentQuestionIndex--;
+        _showAnswer = false;
+        _selectedMcqOption = null;
       });
     }
+  }
+
+  void _selectMcqOption(String option) {
+    setState(() {
+      _selectedMcqOption = option;
+      _showAnswer = true;
+    });
   }
 
   @override
@@ -117,6 +130,8 @@ class _QuizScreenState extends State<QuizScreen> {
     }
 
     final currentQuestion = _questions![_currentQuestionIndex];
+    final hasMcqChoices = currentQuestion.mcqChoices != null && 
+                          currentQuestion.mcqChoices!.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -148,15 +163,85 @@ class _QuizScreenState extends State<QuizScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  currentQuestion.correctAnswer,
-                  style: Theme.of(context).textTheme.bodyLarge,
+            
+            // Display MCQ options if available
+            if (hasMcqChoices) ...[
+              ...currentQuestion.mcqChoices!.map((choice) => 
+                Card(
+                  margin: const EdgeInsets.symmetric(vertical: 4.0),
+                  color: _selectedMcqOption == choice 
+                      ? Colors.blue.shade100 
+                      : null,
+                  child: InkWell(
+                    onTap: _showAnswer ? null : () => _selectMcqOption(choice),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              choice,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                          if (_showAnswer && choice == currentQuestion.correctAnswer)
+                            const Icon(Icons.check_circle, color: Colors.green)
+                          else if (_showAnswer && _selectedMcqOption == choice && choice != currentQuestion.correctAnswer)
+                            const Icon(Icons.cancel, color: Colors.red),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              ).toList(),
+              const SizedBox(height: 16),
+            ],
+            
+            // Only show answer directly if MCQ options are not available or if answer is already revealed
+            if (!hasMcqChoices || _showAnswer) 
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Answer:',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        currentQuestion.correctAnswer,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      if (currentQuestion.explanation.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Explanation:',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          currentQuestion.explanation,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+            
+            // Show button to reveal answer only if not MCQ or if answer not shown yet
+            if (!hasMcqChoices && !_showAnswer)
+              ElevatedButton(
+                onPressed: () => setState(() => _showAnswer = true),
+                child: const Text('Show Answer'),
+              ),
+              
             const Spacer(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

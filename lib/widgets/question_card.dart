@@ -268,6 +268,41 @@ class _QuestionCardState extends State<QuestionCard> {
                 p: Theme.of(context).textTheme.titleMedium,
               ),
             ),
+            
+            // Display MCQ choices if available
+            if (widget.question.mcqChoices != null && widget.question.mcqChoices!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: widget.question.mcqChoices!.map((choice) => 
+                  Card(
+                    margin: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _showAnswer = true;
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                choice,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                ).toList(),
+              ),
+            ],
+            
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
               child: Wrap(
