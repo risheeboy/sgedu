@@ -214,7 +214,6 @@ ${singaporeEducationPrompt}`;
       // Always update the response content
       await afterData.ref.update({
         response: responseContent, // Keep original response for debugging
-        cleanResponse: cleanResponse, // Store cleaned version
         modelName: !data.subject.toLowerCase().endsWith('mathematics') ? 'JSON Gemini 2.0 Experimental' : 'O3 Mini Thinking',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
