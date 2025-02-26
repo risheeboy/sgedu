@@ -253,6 +253,38 @@ class _QuestionCardState extends State<QuestionCard> {
     );
   }
 
+  Future<void> _showFeedbackDialog() async {
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Feedback'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('Positive'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.thumb_up, color: Colors.green),
+                    onPressed: () => _submitFeedback('positive'),
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Negative'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.thumb_down, color: Colors.red),
+                    onPressed: _showNegativeFeedbackOptions,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -368,16 +400,20 @@ class _QuestionCardState extends State<QuestionCard> {
                   label: const Text('Answer'),
                 ),
                 const Spacer(),
-                // Feedback buttons
-                IconButton(
-                  icon: const Icon(Icons.thumb_up, color: Colors.green),
-                  iconSize: 20,
-                  onPressed: () => _submitFeedback('positive'),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.thumb_down, color: Colors.red),
-                  iconSize: 20,
-                  onPressed: _showNegativeFeedbackOptions,
+                // Feedback UI - Less prominent
+                InkWell(
+                  onTap: () => _showFeedbackDialog(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.rate_review, size: 16, color: Colors.grey),
+                        SizedBox(width: 4),
+                        Text('Feedback', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.chat),
