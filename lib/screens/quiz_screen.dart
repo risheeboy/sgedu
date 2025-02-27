@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:html' as html;
 import '../models/quiz.dart';
 import '../services/quiz_service.dart';
 import '../services/question_service.dart';
 import '../models/question.dart';
+import '../widgets/common_app_bar.dart';
 
 class QuizScreen extends StatefulWidget {
   final String quizId;
+  final String? sourceQuestionId;
   
   const QuizScreen({
     Key? key,
     required this.quizId,
+    this.sourceQuestionId,
   }) : super(key: key);
 
   @override
@@ -32,7 +36,23 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
+    print('QuizScreen initialized with quiz ID: ${widget.quizId}');
     _loadQuiz();
+    _updateBrowserUrl();
+  }
+
+  void _updateBrowserUrl() {
+    final quizPath = '/quiz/${widget.quizId}';
+    final currentPath = html.window.location.pathname;
+    
+    // Check if we need to update the URL
+    if (currentPath == null || !currentPath.endsWith(quizPath)) {
+      print('Updating browser URL to: $quizPath');
+      // Use replaceState instead of pushState to avoid adding to history stack
+      html.window.history.replaceState(null, '', quizPath);
+    } else {
+      print('Browser URL already correct: $currentPath');
+    }
   }
 
   Future<void> _loadQuiz() async {
@@ -100,6 +120,41 @@ class _QuizScreenState extends State<QuizScreen> {
     });
   }
 
+  void _handleBackButton() {
+    String targetPath = '/';
+    
+    // First check if we have a source question ID from the widget
+    if (widget.sourceQuestionId != null && widget.sourceQuestionId!.isNotEmpty) {
+      print('Navigating back to source question: ${widget.sourceQuestionId}');
+      targetPath = '/question/${widget.sourceQuestionId}';
+    } else {
+      // Otherwise check document.referrer to see where we came from
+      try {
+        final referrer = html.document.referrer;
+        if (referrer.isNotEmpty) {
+          final referrerUri = Uri.parse(referrer);
+          // Check if referrer is from the same origin (to avoid security issues)
+          if (referrerUri.origin == Uri.base.origin) {
+            final path = referrerUri.path;
+            if (path.contains('/question/')) {
+              targetPath = path;
+              print('Navigating back to referrer path: $targetPath');
+            }
+          }
+        }
+      } catch (e) {
+        print('Error handling back navigation: $e');
+      }
+    }
+    
+    // Update browser URL before navigation
+    print('Setting URL to: $targetPath before navigation');
+    html.window.history.replaceState(null, '', targetPath);
+    
+    // Navigate back
+    Navigator.of(context).pop();
+  }
+
   @override
   void dispose() {
     _userAnswerController.dispose();
@@ -118,8 +173,9 @@ class _QuizScreenState extends State<QuizScreen> {
 
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Quiz Error'),
+        appBar: CommonAppBar(
+          title: 'Quiz Error',
+          showQuizButton: true,
         ),
         body: Center(
           child: Text(_error!),
@@ -129,8 +185,9 @@ class _QuizScreenState extends State<QuizScreen> {
 
     if (_quiz == null || _questions == null || _questions!.isEmpty) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Quiz'),
+        appBar: CommonAppBar(
+          title: 'Quiz',
+          showQuizButton: true,
         ),
         body: const Center(
           child: Text('No questions available'),
@@ -143,9 +200,15 @@ class _QuizScreenState extends State<QuizScreen> {
                           currentQuestion.mcqChoices!.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_quiz!.name),
-        actions: [
+      appBar: CommonAppBar(
+        title: _quiz!.name,
+        shareUrl: '${Uri.base.origin}/quiz/${widget.quizId}',
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _handleBackButton,
+        ),
+        automaticallyImplyLeading: false,
+        additionalActions: [
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),

@@ -5,9 +5,17 @@ import 'dart:html' as html;
 import '../widgets/question_card.dart';
 import '../services/question_service.dart';
 import '../models/question.dart';
+import '../widgets/common_app_bar.dart';
 
 class QuestionPage extends StatefulWidget {
-  const QuestionPage({super.key});
+  final String? initialQuestionId;
+  final bool showAppBar;
+  
+  const QuestionPage({
+    super.key, 
+    this.initialQuestionId,
+    this.showAppBar = false,
+  });
 
   @override
   State<QuestionPage> createState() => _QuestionPageState();
@@ -69,13 +77,36 @@ class _QuestionPageState extends State<QuestionPage> {
   void initState() {
     super.initState();
     _topicController.addListener(() => setState(() {}));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _handleDeepLink());
+    
+    // Check for initialQuestionId from constructor first
+    if (widget.initialQuestionId != null && widget.initialQuestionId!.isNotEmpty) {
+      print('Loading question by ID from widget parameter: ${widget.initialQuestionId}');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadQuestionById(widget.initialQuestionId!);
+      });
+    } else {
+      // Otherwise check URL parameters
+      WidgetsBinding.instance.addPostFrameCallback((_) => _handleDeepLink());
+    }
   }
 
   void _handleDeepLink() {
+    // First check for path-based format in the URL
+    final currentPath = html.window.location.pathname;
+    if (currentPath != null && currentPath.startsWith('/question/')) {
+      final questionId = currentPath.substring(10); // Remove '/question/' prefix
+      if (questionId.isNotEmpty) {
+        print('Loading question from URL path: $questionId');
+        _loadQuestionById(questionId);
+        return;
+      }
+    }
+    
+    // Then check query parameters (fallback for older links)
     final uri = Uri.parse(html.window.location.href);
     final questionId = uri.queryParameters['questionId'];
     if (questionId != null && questionId.isNotEmpty) {
+      print('Loading question from URL query parameter: $questionId');
       _loadQuestionById(questionId);
     }
   }
@@ -235,9 +266,9 @@ class _QuestionPageState extends State<QuestionPage> {
         _lastDocument = snapshot.docs.last;
         final questionId = _lastDocument!.id;
         print('Updating browser history state with question ID: $questionId');
-        final currentUri = Uri.parse(html.window.location.href);
-        final updatedUri = currentUri.replace(queryParameters: {'questionId': questionId});
-        html.window.history.replaceState(null, '', updatedUri.toString());
+        // Use path-based format for consistency
+        final questionPath = '/question/$questionId';
+        html.window.history.replaceState(null, '', questionPath);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -285,6 +316,20 @@ class _QuestionPageState extends State<QuestionPage> {
 
   @override
   Widget build(BuildContext context) {
+    return widget.showAppBar 
+      ? Scaffold(
+        appBar: CommonAppBar(
+          title: 'Edu🦦Thingz',
+          shareUrl: _existingQuestions != null && _existingQuestions!.isNotEmpty
+              ? '${Uri.base.origin}/question/${_existingQuestions![0].id}'
+              : null,
+        ),
+        body: _buildContent(),
+      )
+      : _buildContent();
+  }
+  
+  Widget _buildContent() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Center(

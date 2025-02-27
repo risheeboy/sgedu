@@ -1,7 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="$FLUTTER_BASE_HREF">
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Practice Questions!">
@@ -10,6 +23,22 @@
   <link rel="manifest" href="manifest.json">
   <script>
     const serviceWorkerVersion = null;
+
+    // deep linking in Flutter web
+    window.flutterWebRenderer = "html";
+    (function() {
+      // Check if we need to redirect
+      var pathname = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      
+      // Store the full URL path in sessionStorage so Flutter can access it
+      if (pathname && pathname !== '/') {
+        sessionStorage.setItem('initialPath', pathname + search + hash);
+      } else {
+        sessionStorage.removeItem('initialPath');
+      }
+    })();
   </script>
   <script src="flutter.js" defer></script>
 </head>

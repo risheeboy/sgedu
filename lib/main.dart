@@ -16,6 +16,7 @@ import 'screens/quiz_screen.dart';
 import 'services/quiz_service.dart';
 import 'models/quiz.dart';
 import 'widgets/quiz_list_dialog.dart';
+import 'widgets/common_app_bar.dart';
 
 Future<void> signInWithGoogle() async {
   final GoogleAuthProvider googleProvider = GoogleAuthProvider();
@@ -63,94 +64,102 @@ class MyApp extends StatelessWidget {
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
       initialRoute: '/',
+      onGenerateInitialRoutes: (String initialRoute) {
+        print('Initial route: $initialRoute');
+        // For web, get the path from window.location.pathname
+        final currentPath = html.window.location.pathname;
+        print('Current path from window.location: $currentPath');
+        
+        if (currentPath != null && currentPath.isNotEmpty && currentPath != '/') {
+          if (currentPath.startsWith('/quiz/')) {
+            final quizId = currentPath.substring(6); // Remove '/quiz/' prefix
+            print('Initial Quiz route detected: $quizId');
+            return [
+              MaterialPageRoute(
+                builder: (context) => QuizScreen(quizId: quizId),
+              )
+            ];
+          } else if (currentPath.startsWith('/question/')) {
+            final questionId = currentPath.substring(10); // Remove '/question/' prefix
+            print('Initial Question route detected: $questionId');
+            return [
+              MaterialPageRoute(
+                builder: (context) => QuestionPage(
+                  initialQuestionId: questionId,
+                  showAppBar: true,
+                ),
+              )
+            ];
+          }
+        }
+        
+        // Default initial route
+        return [
+          MaterialPageRoute(
+            builder: (context) => Scaffold(
+              appBar: CommonAppBar(
+                title: 'Edu🦦Thingz',
+                shareUrl: html.window.location.href,
+                customSignIn: signInWithGoogle,
+                customSignOut: signOut,
+              ),
+              body: const QuestionPage(),
+            ),
+          )
+        ];
+      },
       onGenerateRoute: (settings) {
         // Handle quiz route with ID parameter
         if (settings.name?.startsWith('/quiz/') ?? false) {
           print('Quiz route: ${settings.name}');
           final quizId = settings.name!.substring(6); // Remove '/quiz/' prefix
+          
+          // Extract question ID from the URL if the user is navigating from a question
+          String? sourceQuestionId;
+          final currentPath = html.window.location.pathname;
+          if (currentPath?.contains('/question/') ?? false) {
+            try {
+              // Extract question ID from path
+              final questionIdMatch = RegExp(r'/question/([^/]+)').firstMatch(currentPath!);
+              if (questionIdMatch != null && questionIdMatch.groupCount >= 1) {
+                sourceQuestionId = questionIdMatch.group(1);
+                print('Navigating to quiz from question ID: $sourceQuestionId');
+              }
+            } catch (e) {
+              print('Error extracting question ID: $e');
+            }
+          }
+          
           print('Quiz ID: $quizId');
           return MaterialPageRoute(
-            builder: (context) => QuizScreen(quizId: quizId),
+            builder: (context) => QuizScreen(
+              quizId: quizId,
+              sourceQuestionId: sourceQuestionId,
+            ),
+          );
+        }
+        
+        // Handle question route with ID parameter (path-based format)
+        if (settings.name?.startsWith('/question/') ?? false) {
+          print('Question route: ${settings.name}');
+          final questionId = settings.name!.substring(10); // Remove '/question/' prefix
+          print('Question ID: $questionId');
+          return MaterialPageRoute(
+            builder: (context) => QuestionPage(
+              initialQuestionId: questionId,
+              showAppBar: true,
+            ),
           );
         }
         
         // Default route
         return MaterialPageRoute(
           builder: (context) => Scaffold(
-            appBar: AppBar(
-              title: const Text('Edu🦦Thingz'),
-              actions: [
-                // Quizzes dropdown button
-                StreamBuilder<User?>(
-                  stream: FirebaseAuth.instance.authStateChanges(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.active) {
-                      final user = snapshot.data;
-                      if (user != null) {
-                        return IconButton(
-                          icon: const Icon(Icons.quiz),
-                          tooltip: 'Your Quizzes',
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) => const QuizListDialog(),
-                            );
-                          },
-                        );
-                      } else {
-                        return const SizedBox.shrink();
-                      }
-                    }
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.share),
-                  tooltip: 'Share',
-                  onPressed: () {
-                    final currentUrl = html.window.location.href;
-                    try {
-                      // Try using Web Share API
-                      html.window.navigator.share({'url': currentUrl});
-                    } catch (e) {
-                      // Fallback to clipboard
-                      html.window.navigator.clipboard?.writeText(currentUrl);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Link copied to clipboard'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                StreamBuilder<User?>(
-                  stream: FirebaseAuth.instance.authStateChanges(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.active) {
-                      final user = snapshot.data;
-                      if (user != null) {
-                        return IconButton(
-                          icon: const Icon(Icons.logout),
-                          tooltip: 'Logout',
-                          onPressed: signOut,
-                        );
-                      } else {
-                        return IconButton(
-                          icon: const Icon(Icons.login),
-                          tooltip: 'Login with Google',
-                          onPressed: signInWithGoogle,
-                        );
-                      }
-                    }
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  },
-                ),
-              ],
+            appBar: CommonAppBar(
+              title: 'Edu🦦Thingz',
+              shareUrl: html.window.location.href,
+              customSignIn: signInWithGoogle,
+              customSignOut: signOut,
             ),
             body: const QuestionPage(),
           ),
