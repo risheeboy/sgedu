@@ -32,6 +32,8 @@ class _QuestionCardState extends State<QuestionCard> {
   bool _showFeedbackOptions = false;
   Set<String> _selectedReasons = {};
   final TextEditingController _feedbackCommentController = TextEditingController();
+  final TextEditingController _userAnswerController = TextEditingController();
+  String? _selectedMcqOption;
 
   void _submitFeedback(String type, {List<String>? reasons, String? comment}) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -287,6 +289,9 @@ class _QuestionCardState extends State<QuestionCard> {
 
   @override
   Widget build(BuildContext context) {
+    final hasMcqChoices = widget.question.mcqChoices != null && 
+                          widget.question.mcqChoices!.isNotEmpty;
+
     return Card(
       margin: const EdgeInsets.all(8.0),
       child: Padding(
@@ -300,18 +305,34 @@ class _QuestionCardState extends State<QuestionCard> {
                 p: Theme.of(context).textTheme.titleMedium,
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Wrap(
+                spacing: 8.0,
+                children: (widget.question.topics ?? []).map<Widget>((topic) => ActionChip(
+                  label: Text(topic),
+                  onPressed: () async {
+                    widget.topicController.text = topic;
+                  },
+                )).toList(),
+              ),
+            ),
             
             // Display MCQ choices if available
-            if (widget.question.mcqChoices != null && widget.question.mcqChoices!.isNotEmpty) ...[
+            if (hasMcqChoices) ...[
               const SizedBox(height: 16),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: widget.question.mcqChoices!.map((choice) => 
+                children: widget.question.mcqChoices!.map<Widget>((choice) => 
                   Card(
                     margin: const EdgeInsets.symmetric(vertical: 4.0),
+                    color: _selectedMcqOption == choice 
+                        ? Colors.blue.shade100 
+                        : null,
                     child: InkWell(
-                      onTap: () {
+                      onTap: _showAnswer ? null : () {
                         setState(() {
+                          _selectedMcqOption = choice;
                           _showAnswer = true;
                         });
                       },
@@ -319,13 +340,16 @@ class _QuestionCardState extends State<QuestionCard> {
                         padding: const EdgeInsets.all(8.0),
                         child: Row(
                           children: [
-                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 choice,
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                             ),
+                            if (_showAnswer && choice == widget.question.correctAnswer)
+                              const Icon(Icons.check_circle, color: Colors.green)
+                            else if (_showAnswer && _selectedMcqOption == choice && choice != widget.question.correctAnswer)
+                              const Icon(Icons.cancel, color: Colors.red),
                           ],
                         ),
                       ),
@@ -335,18 +359,26 @@ class _QuestionCardState extends State<QuestionCard> {
               ),
             ],
             
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Wrap(
-                spacing: 8.0,
-                children: widget.question.topics.map<Widget>((topic) => ActionChip(
-                  label: Text(topic),
-                  onPressed: () async {
-                    widget.topicController.text = topic;
-                  },
-                )).toList(),
+            // For non-MCQ questions, show text area for user to write their answer if answer not shown yet
+            if (!hasMcqChoices && !_showAnswer) ...[
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: TextField(
+                  controller: _userAnswerController,
+                  maxLines: 1,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.all(12),
+                    hintText: 'Type your answer here...',
+                    border: InputBorder.none,
+                  ),
+                ),
               ),
-            ),
+            ],
+            
             const SizedBox(height: 16),
             Row(
               children: [
@@ -428,37 +460,77 @@ class _QuestionCardState extends State<QuestionCard> {
                 ),
               ],
             ),
+            
+            // Only show user's answer if it's a non-MCQ question and they've entered something
+            if (_showAnswer && !hasMcqChoices && _userAnswerController.text.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Card(
+                color: Colors.grey.shade100,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your Answer:',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _userAnswerController.text,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            
             if (_showAnswer) ...[
               const SizedBox(height: 16),
-              Text(
-                'Answer:',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Colors.blue[800],
-                ),
-              ),
-              const SizedBox(height: 4),
-              MarkdownBody(
-                data: widget.question.correctAnswer,
-                styleSheet: MarkdownStyleSheet(
-                  p: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-              if (widget.question.explanation != null && widget.question.explanation.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Explanation:',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: Colors.orange[800],
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Answer:',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[800],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      MarkdownBody(
+                        data: widget.question.correctAnswer,
+                        styleSheet: MarkdownStyleSheet(
+                          p: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      if (widget.question.explanation != null && widget.question.explanation.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Explanation:',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange[800],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        MarkdownBody(
+                          data: widget.question.explanation,
+                          styleSheet: MarkdownStyleSheet(
+                            p: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                MarkdownBody(
-                  data: widget.question.explanation,
-                  styleSheet: MarkdownStyleSheet(
-                    p: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-              ],
+              ),
             ],
           ],
         ),
