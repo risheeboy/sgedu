@@ -347,59 +347,9 @@ class _QuestionCardState extends State<QuestionCard> {
                 )).toList(),
               ),
             ),
-            if (_showAnswer) ...[
-              const SizedBox(height: 16),
-              Text(
-                'Answer:',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Colors.blue[800],
-                ),
-              ),
-              const SizedBox(height: 4),
-              MarkdownBody(
-                data: widget.question.correctAnswer,
-                styleSheet: MarkdownStyleSheet(
-                  p: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-              if (widget.question.explanation != null && widget.question.explanation.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Explanation:',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: Colors.orange[800],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                MarkdownBody(
-                  data: widget.question.explanation,
-                  styleSheet: MarkdownStyleSheet(
-                    p: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-              ],
-            ],
             const SizedBox(height: 16),
             Row(
               children: [
-                // Quiz selection button
-                OutlinedButton.icon(
-                  onPressed: _showQuizSelectionDialog,
-                  icon: const Icon(Icons.playlist_add),
-                  label: const Text('Quiz'),
-                ),
-                const SizedBox(width: 8),
-                // Show/Hide answer toggle
-                OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _showAnswer = !_showAnswer;
-                    });
-                  },
-                  icon: Icon(_showAnswer ? Icons.visibility_off : Icons.visibility),
-                  label: const Text('Answer'),
-                ),
-                const Spacer(),
                 // Feedback UI - Less prominent
                 InkWell(
                   onTap: () => _showFeedbackDialog(),
@@ -415,6 +365,8 @@ class _QuestionCardState extends State<QuestionCard> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                // Tutor button
                 Tooltip(
                   message: 'Ask AI Tutor',
                   child: TextButton.icon(
@@ -456,8 +408,58 @@ class _QuestionCardState extends State<QuestionCard> {
                     },
                   ),
                 ),
+                const Spacer(),
+                // Quiz selection button
+                OutlinedButton.icon(
+                  onPressed: _showQuizSelectionDialog,
+                  icon: const Icon(Icons.playlist_add),
+                  label: const Text('Quiz'),
+                ),
+                const SizedBox(width: 8),
+                // Show/Hide answer toggle
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _showAnswer = !_showAnswer;
+                    });
+                  },
+                  icon: Icon(_showAnswer ? Icons.visibility_off : Icons.visibility),
+                  label: const Text('Answer'),
+                ),
               ],
             ),
+            if (_showAnswer) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Answer:',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Colors.blue[800],
+                ),
+              ),
+              const SizedBox(height: 4),
+              MarkdownBody(
+                data: widget.question.correctAnswer,
+                styleSheet: MarkdownStyleSheet(
+                  p: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              if (widget.question.explanation != null && widget.question.explanation.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Explanation:',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Colors.orange[800],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                MarkdownBody(
+                  data: widget.question.explanation,
+                  styleSheet: MarkdownStyleSheet(
+                    p: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ],
           ],
         ),
       ),
