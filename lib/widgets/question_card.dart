@@ -415,43 +415,46 @@ class _QuestionCardState extends State<QuestionCard> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.chat),
-                  tooltip: 'Ask AI Tutor',
-                  onPressed: () async {
-                    final user = FirebaseAuth.instance.currentUser;
-                    if (user != null) {
-                      final docData = {
-                        'questionId': widget.question.id,
-                        'context': {
-                          'question': widget.question.question,
-                          'answer': widget.question.correctAnswer,
-                          'explanation': widget.question.explanation,
-                        },
-                        'userId': user.uid,
-                        'messages': [],
-                        'status': 'active',
-                        'createdAt': FieldValue.serverTimestamp(),
-                      };
-                      
-                      final doc = await FirebaseFirestore.instance
-                          .collection('chat_sessions')
-                          .add(docData);
-                      
-                      if (mounted) {
-                        showDialog(
-                          context: context,
-                          builder: (context) => ChatDialog(
-                            chatSessionId: doc.id,
-                          ),
+                Tooltip(
+                  message: 'Ask AI Tutor',
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.chat),
+                    label: const Text('Tutor'),
+                    onPressed: () async {
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user != null) {
+                        final docData = {
+                          'questionId': widget.question.id,
+                          'context': {
+                            'question': widget.question.question,
+                            'answer': widget.question.correctAnswer,
+                            'explanation': widget.question.explanation,
+                          },
+                          'userId': user.uid,
+                          'messages': [],
+                          'status': 'active',
+                          'createdAt': FieldValue.serverTimestamp(),
+                        };
+                        
+                        final doc = await FirebaseFirestore.instance
+                            .collection('chat_sessions')
+                            .add(docData);
+                        
+                        if (mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => ChatDialog(
+                              chatSessionId: doc.id,
+                            ),
+                          );
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please login to chat'))
                         );
                       }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please login to chat'))
-                      );
-                    }
-                  },
+                    },
+                  ),
                 ),
               ],
             ),
