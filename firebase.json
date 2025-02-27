@@ -17,7 +17,22 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "headers": [
+      {
+        "source": "**/*.md",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "text/markdown"
+          }
+        ]
+      }
+    ],
     "rewrites": [
+      {
+        "source": "/faq",
+        "destination": "/assets/assets/faq.md"
+      },
       {
         "source": "**",
         "destination": "/index.html"
