@@ -7,6 +7,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget>? additionalActions;
   final bool showQuizButton;
+  final bool showGameButton;
   final String? shareUrl;
   final Function? customSignIn;
   final Function? customSignOut;
@@ -18,6 +19,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.title = 'Edu🦦Thingz',
     this.additionalActions,
     this.showQuizButton = true,
+    this.showGameButton = true,
     this.shareUrl,
     this.customSignIn,
     this.customSignOut,
@@ -48,6 +50,27 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
                         context: context,
                         builder: (BuildContext context) => const QuizListDialog(),
                       );
+                    },
+                  );
+                }
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          
+        // Game lobby button - only if showGameButton is true
+        if (showGameButton)
+          StreamBuilder<User?>(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.active) {
+                final user = snapshot.data;
+                if (user != null) {
+                  return IconButton(
+                    icon: const Icon(Icons.games),
+                    tooltip: 'Game Lobby',
+                    onPressed: () {
+                      html.window.location.href = '/games';
                     },
                   );
                 }

@@ -10,6 +10,16 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    
+    function isGamePlayer(gameData) {
+      return isSignedIn() && 
+             (request.auth.uid in gameData.players || 
+              request.auth.uid in gameData.playerIds);
+    }
+    
+    function isGameHost(gameData) {
+      return isSignedIn() && request.auth.uid == gameData.hostId;
+    }
 
     match /requests/{requestId} {
       allow read: if isOwner(resource.data.userId);
@@ -43,12 +53,59 @@ service cloud.firestore {
     match /quizzes/{quizId} {
       allow create: if isOwner(request.resource.data.userId);
       
+      // Allow quiz creator to read
       allow read: if isOwner(resource.data.userId);
+      
+      // Allow any player to read any quiz used in a game
+      // This is necessary because game players need to access quiz data
+      allow read: if isSignedIn();
       
       allow update: if isOwner(resource.data.userId)
         && request.resource.data.userId == resource.data.userId;
       
       allow delete: if isOwner(resource.data.userId);
+    }
+    
+    match /games/{gameId} {
+      // Any signed-in user can list games (but detailed access is controlled below)
+      allow list: if isSignedIn();
+      
+      // Anyone can read public games that are in waiting status
+      allow read: if resource.data.isPublic == true && resource.data.status == 'waiting';
+      
+      // Players in the game can read the game
+      allow read: if isGamePlayer(resource.data);
+      
+      // Users can create games (they become the host)
+      allow create: if isOwner(request.resource.data.hostId) && 
+                      request.resource.data.players[request.auth.uid] != null &&
+                      request.auth.uid in request.resource.data.playerIds;
+      
+      // Game host can update the game
+      allow update: if isGameHost(resource.data) && 
+                      request.resource.data.hostId == resource.data.hostId;
+      
+      // Player can update the game to join if it's in waiting status and public
+      allow update: if resource.data.status == 'waiting' && 
+                      (resource.data.isPublic == true || isGamePlayer(resource.data)) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['players', 'playerIds', 'updatedAt']);
+      
+      // Host can delete the game
+      allow delete: if isGameHost(resource.data);
+      
+      // Rules for scores subcollection
+      match /scores/{scoreId} {
+        // Game players can read all scores
+        allow read: if isGamePlayer(get(/databases/$(database)/documents/games/$(gameId)).data);
+        
+        // Players can submit their own scores 
+        allow create: if isSignedIn() && 
+                        request.resource.data.userId == request.auth.uid && 
+                        isGamePlayer(get(/databases/$(database)/documents/games/$(gameId)).data);
+        
+        // No updates or deletes allowed for scores 
+        allow update, delete: if false;
+      }
     }
 
     // Default deny all

@@ -1,4 +1,3 @@
-// Import dart:math for the min function
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,8 +12,12 @@ import 'services/user_service.dart';
 import 'models/question.dart';
 import 'screens/question_page.dart';
 import 'screens/quiz_screen.dart';
+import 'screens/game_lobby_screen.dart';
+import 'screens/game_screen.dart';
 import 'services/quiz_service.dart';
+import 'services/game_service.dart';
 import 'models/quiz.dart';
+import 'models/game.dart';
 import 'widgets/quiz_list_dialog.dart';
 import 'widgets/common_app_bar.dart';
 
@@ -90,6 +93,32 @@ class MyApp extends StatelessWidget {
                 ),
               )
             ];
+          } else if (currentPath.startsWith('/game/')) {
+            // Check if it's a game lobby or game screen
+            if (currentPath.endsWith('/lobby')) {
+              final gameId = currentPath.substring(6, currentPath.length - 6); // Remove '/game/' prefix and '/lobby' suffix
+              print('Initial Game Lobby route detected: $gameId');
+              return [
+                MaterialPageRoute(
+                  builder: (context) => GameLobbyScreen(gameId: gameId),
+                )
+              ];
+            } else {
+              final gameId = currentPath.substring(6); // Remove '/game/' prefix
+              print('Initial Game route detected: $gameId');
+              return [
+                MaterialPageRoute(
+                  builder: (context) => GameScreen(gameId: gameId),
+                )
+              ];
+            }
+          } else if (currentPath == '/games') {
+            print('Initial Games Lobby route detected');
+            return [
+              MaterialPageRoute(
+                builder: (context) => const GameLobbyScreen(),
+              )
+            ];
           }
         }
         
@@ -149,6 +178,33 @@ class MyApp extends StatelessWidget {
               initialQuestionId: questionId,
               showAppBar: true,
             ),
+          );
+        }
+        
+        // Handle game routes
+        if (settings.name?.startsWith('/game/') ?? false) {
+          print('Game route: ${settings.name}');
+          // Check if it's a game lobby or game screen
+          if (settings.name!.endsWith('/lobby')) {
+            final gameId = settings.name!.substring(6, settings.name!.length - 6); // Remove '/game/' prefix and '/lobby' suffix
+            print('Game Lobby ID: $gameId');
+            return MaterialPageRoute(
+              builder: (context) => GameLobbyScreen(gameId: gameId),
+            );
+          } else {
+            final gameId = settings.name!.substring(6); // Remove '/game/' prefix
+            print('Game ID: $gameId');
+            return MaterialPageRoute(
+              builder: (context) => GameScreen(gameId: gameId),
+            );
+          }
+        }
+        
+        // Handle games lobby route
+        if (settings.name == '/games') {
+          print('Games Lobby route');
+          return MaterialPageRoute(
+            builder: (context) => const GameLobbyScreen(),
           );
         }
         
