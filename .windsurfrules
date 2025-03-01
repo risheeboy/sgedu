@@ -24,7 +24,8 @@
 - AI & embedding APIs should be called from inside Firebase functions and not from the flutter UI code. 
 - LLM text generation API calls should include response JSON schema. 
 - Use typescript for node functions.
-- After making changes, check if any imports are missing for new code and run 'flutter analyze' to check for any errors.
+- After making flutter changes, check if any imports are missing for new code and run 'flutter analyze' to check if any errors.
+- After making firestore changes, check if any changes are required in firestore.rules or firestore.indexes.json file.
 
 ## Code Organization
 
