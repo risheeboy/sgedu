@@ -128,6 +128,7 @@ class MyApp extends StatelessWidget {
               )
             ];
           } else if (currentPath.startsWith('/game/')) {
+            print('Initial Game route detected');
             // Check if it's a game lobby or game screen
             if (currentPath.endsWith('/lobby')) {
               final gameId = currentPath.substring(6, currentPath.length - 6); // Remove '/game/' prefix and '/lobby' suffix
@@ -140,6 +141,17 @@ class MyApp extends StatelessWidget {
             } else {
               final gameId = currentPath.substring(6); // Remove '/game/' prefix
               print('Initial Game route detected: $gameId');
+              
+              // Handle case when gameId is empty (just /game/ with no ID)
+              if (gameId.isEmpty) {
+                print('WARNING: Empty game ID detected in URL');
+                return [
+                  MaterialPageRoute(
+                    builder: (context) => const GameLobbyScreen(),
+                  )
+                ];
+              }
+              
               return [
                 MaterialPageRoute(
                   builder: (context) => GameScreen(gameId: gameId),
@@ -228,6 +240,15 @@ class MyApp extends StatelessWidget {
           } else {
             final gameId = settings.name!.substring(6); // Remove '/game/' prefix
             print('Game ID: $gameId');
+            
+            // Handle case when gameId is empty (just /game/ with no ID)
+            if (gameId.isEmpty) {
+              print('WARNING: Empty game ID detected in URL');
+              return MaterialPageRoute(
+                builder: (context) => const GameLobbyScreen(),
+              );
+            }
+            
             return MaterialPageRoute(
               builder: (context) => GameScreen(gameId: gameId),
             );

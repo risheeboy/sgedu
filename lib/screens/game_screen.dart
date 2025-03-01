@@ -1,7 +1,8 @@
+import 'dart:async';
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:html' as html;
 import '../models/game.dart';
 import '../models/quiz.dart';
 import '../models/question.dart';
@@ -41,49 +42,113 @@ class _GameScreenState extends State<GameScreen> {
   // Current scores map for quick lookup
   Map<String, int> _playerScores = {};
   
+  bool _hasTimedOut = false; // New flag for tracking timeout
+  Timer? _loadingTimer; // Timer for loading timeout
+  
+  Game? _receivedGame; // Local variable to track if we've received game data
+  
   @override
   void initState() {
     super.initState();
+    print('GameScreen initState - gameId: ${widget.gameId}');
     _initializeStreams();
     _updateBrowserUrl();
+    
+    // Set a timeout for loading
+    _loadingTimer = Timer(const Duration(seconds: 10), () {
+      print('Game loading timed out after 10 seconds');
+      setState(() {
+        _hasTimedOut = true;
+      });
+    });
+  }
+  
+  @override
+  void dispose() {
+    _loadingTimer?.cancel();
+    super.dispose();
   }
   
   void _updateBrowserUrl() {
     final gamePath = '/game/${widget.gameId}';
     final currentPath = html.window.location.pathname;
+    print('_updateBrowserUrl - Current path: $currentPath, Game path: $gamePath');
     
     // Check if we need to update the URL
     if (currentPath != null && !currentPath.endsWith(gamePath)) {
       // Use replaceState instead of pushState to avoid adding to history stack
       html.window.history.replaceState(null, '', gamePath);
+      print('_updateBrowserUrl - Updated URL to: $gamePath');
     }
   }
   
   void _initializeStreams() {
-    _gameStream = _gameService.getGameStream(widget.gameId);
-    _scoresStream = _gameService.getGameScoresStream(widget.gameId);
+    // Validate game ID
+    if (widget.gameId.isEmpty) {
+      print('ERROR: Game ID is empty! Cannot initialize streams.');
+      return;
+    }
     
-    // Listen to score changes to update leaderboard
-    _scoresStream?.listen((scores) {
-      // Reset scores
-      final newScores = <String, int>{};
+    print('Initializing streams for game: ${widget.gameId}');
+    
+    // Initialize the streams with null check
+    try {
+      _gameStream = _gameService.getGameStream(widget.gameId);
+      _scoresStream = _gameService.getGameScoresStream(widget.gameId);
       
-      // Calculate total score for each player
-      for (var score in scores) {
-        newScores[score.userId] = (newScores[score.userId] ?? 0) + score.score;
-      }
+      print('Streams initialized successfully');
       
-      setState(() {
-        _playerScores = newScores;
+      // Listen to score changes to update leaderboard
+      _scoresStream?.listen((scores) {
+        print('Received scores update - count: ${scores.length}');
+        // Reset scores
+        final newScores = <String, int>{};
+        
+        // Calculate total score for each player
+        for (var score in scores) {
+          newScores[score.userId] = (newScores[score.userId] ?? 0) + score.score;
+        }
+        
+        setState(() {
+          _playerScores = newScores;
+        });
+      }, onError: (error) {
+        print('Error in scores stream: $error');
       });
-    });
-    
-    // Listen to game changes to update current question
-    _gameStream?.listen((game) {
-      if (game != null && game.status == GameStatus.inProgress) {
-        _loadCurrentQuestion(game);
-      }
-    });
+      
+      // Listen to game changes to update current question
+      _gameStream?.listen((game) {
+        print('Received game update - status: ${game?.status}');
+        
+        // Store the game data to check if we've received it
+        if (game != null) {
+          _receivedGame = game;
+          
+          // Cancel the timeout timer if we received game data
+          if (_loadingTimer != null) {
+            print('Cancelling timeout timer - received game data');
+            _loadingTimer!.cancel();
+            _loadingTimer = null;
+          }
+          
+          // Trigger UI update if we've received game data
+          if (_hasTimedOut) {
+            print('Game data arrived after timeout - resetting timeout flag');
+            setState(() {
+              _hasTimedOut = false;
+            });
+          }
+        }
+        
+        if (game != null && game.status == GameStatus.inProgress) {
+          _loadCurrentQuestion(game);
+        }
+      }, onError: (error) {
+        print('Error in game stream: $error');
+      });
+    } catch (e) {
+      print('Error initializing streams: $e');
+    }
   }
   
   Future<void> _loadCurrentQuestion(Game game) async {
@@ -193,11 +258,13 @@ class _GameScreenState extends State<GameScreen> {
   
   @override
   Widget build(BuildContext context) {
+    print('GameScreen build called');
     return Scaffold(
       appBar: const CommonAppBar(title: 'Quiz Game'),
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, authSnapshot) {
+          print('Auth state connection: ${authSnapshot.connectionState}, hasData: ${authSnapshot.hasData}, user: ${authSnapshot.data?.uid}');
           // Check if user is authenticated
           if (authSnapshot.connectionState == ConnectionState.active) {
             final user = authSnapshot.data;
@@ -208,6 +275,7 @@ class _GameScreenState extends State<GameScreen> {
               final currentPath = html.window.location.pathname;
               if (currentPath != null) {
                 html.window.sessionStorage['redirect_after_login'] = currentPath;
+                print('Saved redirect path: $currentPath');
               }
               
               return Center(
@@ -235,21 +303,77 @@ class _GameScreenState extends State<GameScreen> {
             }
             
             // If user is logged in, continue with game content
+            print('User authenticated: ${user.uid}, loading game content');
+            
+            // Create a local variable that combines both the stream and our direct game access
             return StreamBuilder<Game?>(
               stream: _gameStream,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+                print('Game stream connection: ${snapshot.connectionState}, hasData: ${snapshot.hasData}, hasError: ${snapshot.hasError}');
                 
+                // Handle errors first
                 if (snapshot.hasError) {
+                  print('Game stream error: ${snapshot.error}');
                   return Center(
                     child: Text('Error: ${snapshot.error}'),
                   );
                 }
                 
-                final game = snapshot.data;
+                // Check for data regardless of connection state
+                final game = snapshot.data ?? _receivedGame;
+                
+                // Only show loading indicator if we're still waiting for the initial connection
+                // AND we don't have any data yet AND we haven't timed out
+                if ((snapshot.connectionState == ConnectionState.waiting || !snapshot.hasData) 
+                    && game == null && !_hasTimedOut) {
+                  print('Game is still loading (initial connection)...');
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                // Check for timeout
+                if (_hasTimedOut) {
+                  print('Loading timed out - displaying error message');
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Game is taking too long to load.'),
+                        const SizedBox(height: 16),
+                        const Text('This might indicate the game does not exist or there was a connection issue.'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            html.window.location.href = '/games';
+                          },
+                          child: const Text('Return to Game Lobby'),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _hasTimedOut = false;
+                              _initializeStreams();
+                              
+                              // Reset timeout timer
+                              _loadingTimer?.cancel();
+                              _loadingTimer = Timer(const Duration(seconds: 10), () {
+                                print('Game loading timed out after retry');
+                                setState(() {
+                                  _hasTimedOut = true;
+                                });
+                              });
+                            });
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                
+                // If connection is active but we have no data, it means the game doesn't exist
                 if (game == null) {
+                  print('Game not found for ID: ${widget.gameId}');
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -267,7 +391,8 @@ class _GameScreenState extends State<GameScreen> {
                   );
                 }
                 
-                // Show appropriate screen based on game status
+                // If we have data, show the appropriate screen based on game status
+                print('Game loaded successfully - id: ${game.id}, status: ${game.status}');
                 if (game.status == GameStatus.waiting) {
                   return _buildWaitingScreen(game);
                 } else if (game.status == GameStatus.completed) {

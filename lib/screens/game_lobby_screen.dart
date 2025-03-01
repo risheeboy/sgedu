@@ -455,7 +455,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                                     
                                     final quizData = quizSnapshot.data!.data() as Map<String, dynamic>;
                                     final date = game.createdAt.toLocal();
-                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)}';
+                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
                                     return Row(
                                       children: [
                                         Expanded(
@@ -614,7 +614,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                                     
                                     final quizData = quizSnapshot.data!.data() as Map<String, dynamic>;
                                     final date = game.createdAt.toLocal();
-                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)}';
+                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
                                     return Row(
                                       children: [
                                         Expanded(
