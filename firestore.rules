@@ -13,8 +13,8 @@ service cloud.firestore {
     
     function isGamePlayer(gameData) {
       return isSignedIn() && 
-             (request.auth.uid in gameData.players || 
-              request.auth.uid in gameData.playerIds);
+             (request.auth.uid in gameData.playerIds || 
+              gameData.players[request.auth.uid] != null);
     }
     
     function isGameHost(gameData) {
@@ -51,14 +51,8 @@ service cloud.firestore {
     }
 
     match /quizzes/{quizId} {
+      allow read: if true;
       allow create: if isOwner(request.resource.data.userId);
-      
-      // Allow quiz creator to read
-      allow read: if isOwner(resource.data.userId);
-      
-      // Allow any player to read any quiz used in a game
-      // This is necessary because game players need to access quiz data
-      allow read: if isSignedIn();
       
       allow update: if isOwner(resource.data.userId)
         && request.resource.data.userId == resource.data.userId;
@@ -67,14 +61,9 @@ service cloud.firestore {
     }
     
     match /games/{gameId} {
-      // Any signed-in user can list games (but detailed access is controlled below)
-      allow list: if isSignedIn();
+      allow list: if true;
       
-      // Anyone can read public games that are in waiting status
-      allow read: if resource.data.isPublic == true && resource.data.status == 'waiting';
-      
-      // Players in the game can read the game
-      allow read: if isGamePlayer(resource.data);
+      allow read: if true;
       
       // Users can create games (they become the host)
       allow create: if isOwner(request.resource.data.hostId) && 
@@ -86,9 +75,7 @@ service cloud.firestore {
                       request.resource.data.hostId == resource.data.hostId;
       
       // Player can update the game to join if it's in waiting status and public
-      allow update: if resource.data.status == 'waiting' && 
-                      (resource.data.isPublic == true || isGamePlayer(resource.data)) &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['players', 'playerIds', 'updatedAt']);
+      allow update: if resource.data.status == 'waiting';
       
       // Host can delete the game
       allow delete: if isGameHost(resource.data);
@@ -96,7 +83,7 @@ service cloud.firestore {
       // Rules for scores subcollection
       match /scores/{scoreId} {
         // Game players can read all scores
-        allow read: if isGamePlayer(get(/databases/$(database)/documents/games/$(gameId)).data);
+        allow read: if true;//isGamePlayer(get(/databases/$(database)/documents/games/$(gameId)).data);
         
         // Players can submit their own scores 
         allow create: if isSignedIn() && 
