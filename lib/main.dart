@@ -21,6 +21,27 @@ import 'models/game.dart';
 import 'widgets/quiz_list_dialog.dart';
 import 'widgets/common_app_bar.dart';
 
+// Store the original URL that user is trying to access before login
+String? _originalUrl;
+
+// Save original path for redirect after login
+void saveOriginalPath() {
+  final currentPath = html.window.location.pathname;
+  if (currentPath != null) {
+    _originalUrl = currentPath;
+    print('Original URL saved: $_originalUrl');
+  }
+}
+
+// Navigate to original URL after successful login
+void navigateToOriginalUrl() {
+  if (_originalUrl != null && _originalUrl!.isNotEmpty) {
+    print('Navigating back to original URL: $_originalUrl');
+    html.window.location.pathname = _originalUrl!;
+    _originalUrl = null; // Clear after use
+  }
+}
+
 Future<void> signInWithGoogle() async {
   final GoogleAuthProvider googleProvider = GoogleAuthProvider();
   googleProvider.setCustomParameters({
@@ -28,6 +49,19 @@ Future<void> signInWithGoogle() async {
   });
   try {
     await FirebaseAuth.instance.signInWithPopup(googleProvider);
+    
+    // Check if there's a redirect path stored in session storage
+    final redirectPath = html.window.sessionStorage['redirect_after_login'];
+    if (redirectPath != null && redirectPath.isNotEmpty) {
+      print('Redirecting to saved path after login: $redirectPath');
+      html.window.sessionStorage.remove('redirect_after_login'); // Clear after use
+      html.window.location.pathname = redirectPath;
+    } else if (_originalUrl != null && _originalUrl!.isNotEmpty) {
+      // Fallback to the _originalUrl if available
+      print('Navigating back to original URL: $_originalUrl');
+      html.window.location.pathname = _originalUrl!;
+      _originalUrl = null; // Clear after use
+    }
   } catch (error) {
     print('Google sign-in error: $error');
   }

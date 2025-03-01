@@ -53,7 +53,7 @@ class _GameScreenState extends State<GameScreen> {
     final currentPath = html.window.location.pathname;
     
     // Check if we need to update the URL
-    if (currentPath == null || !currentPath.endsWith(gamePath)) {
+    if (currentPath != null && !currentPath.endsWith(gamePath)) {
       // Use replaceState instead of pushState to avoid adding to history stack
       html.window.history.replaceState(null, '', gamePath);
     }
@@ -195,46 +195,92 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CommonAppBar(title: 'Quiz Game'),
-      body: StreamBuilder<Game?>(
-        stream: _gameStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          
-          if (snapshot.hasError) {
-            return Center(
-              child: Text('Error: ${snapshot.error}'),
+      body: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, authSnapshot) {
+          // Check if user is authenticated
+          if (authSnapshot.connectionState == ConnectionState.active) {
+            final user = authSnapshot.data;
+            
+            // If user is not logged in, show message directing to login button
+            if (user == null) {
+              // Save the current game URL for redirect after login
+              final currentPath = html.window.location.pathname;
+              if (currentPath != null) {
+                html.window.sessionStorage['redirect_after_login'] = currentPath;
+              }
+              
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Please log in to access this game',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Use the login button in the top right corner of the screen',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    const Icon(
+                      Icons.arrow_upward,
+                      size: 32,
+                      color: Colors.blue,
+                    ),
+                  ],
+                ),
+              );
+            }
+            
+            // If user is logged in, continue with game content
+            return StreamBuilder<Game?>(
+              stream: _gameStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                }
+                
+                final game = snapshot.data;
+                if (game == null) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Game not found'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            html.window.location.href = '/games';
+                          },
+                          child: const Text('Return to Game Lobby'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                
+                // Show appropriate screen based on game status
+                if (game.status == GameStatus.waiting) {
+                  return _buildWaitingScreen(game);
+                } else if (game.status == GameStatus.completed) {
+                  return _buildGameCompletedScreen(game);
+                } else {
+                  return _buildGameInProgressScreen(game);
+                }
+              },
             );
           }
           
-          final game = snapshot.data;
-          if (game == null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Game not found'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      html.window.location.href = '/games';
-                    },
-                    child: const Text('Return to Game Lobby'),
-                  ),
-                ],
-              ),
-            );
-          }
-          
-          // Show appropriate screen based on game status
-          if (game.status == GameStatus.waiting) {
-            return _buildWaitingScreen(game);
-          } else if (game.status == GameStatus.completed) {
-            return _buildGameCompletedScreen(game);
-          } else {
-            return _buildGameInProgressScreen(game);
-          }
+          // While checking authentication state
+          return const Center(child: CircularProgressIndicator());
         },
       ),
     );

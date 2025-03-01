@@ -44,7 +44,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       final currentPath = html.window.location.pathname;
       
       // Check if we need to update the URL
-      if (currentPath == null || !currentPath.endsWith(gamePath)) {
+      if (currentPath != null && !currentPath.endsWith(gamePath)) {
         // Use replaceState instead of pushState to avoid adding to history stack
         html.window.history.replaceState(null, '', gamePath);
       }
@@ -65,6 +65,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
           }
         });
       } else {
+        // Save the current URL before redirecting
+        final currentPath = html.window.location.pathname;
+        if (currentPath != null) {
+          html.window.sessionStorage['redirect_after_login'] = currentPath;
+        }
         // Redirect to login if not signed in
         html.window.location.href = '/login';
       }

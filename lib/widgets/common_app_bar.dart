@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:html' as html;
+import '../main.dart' show saveOriginalPath;
 import 'quiz_list_dialog.dart';
 
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -133,6 +134,9 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
                   icon: const Icon(Icons.login),
                   tooltip: 'Login with Google',
                   onPressed: () {
+                    // Save the current path before login
+                    saveOriginalPath();
+                    
                     if (customSignIn != null) {
                       customSignIn!();
                     } else {
