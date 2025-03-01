@@ -43,6 +43,7 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     _initializeStreams();
+    _autoJoinGame();
   }
   
   void _initializeStreams() {
@@ -174,6 +175,42 @@ class _GameScreenState extends State<GameScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error submitting answer: $e')),
       );
+    }
+  }
+  
+  /// Automatically join the game if the user is not already a participant
+  Future<void> _autoJoinGame() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+      
+      // Check if the game exists and if the user is already a participant
+      final gameDoc = await FirebaseFirestore.instance
+          .collection('games')
+          .doc(widget.gameId)
+          .get();
+      
+      if (!gameDoc.exists) {
+        setState(() {
+          _error = 'Game not found';
+        });
+        return;
+      }
+      
+      final game = Game.fromFirestore(gameDoc);
+      
+      // Only auto-join if the game is in waiting status and the user is not already in it
+      if (game.status == GameStatus.waiting && !game.players.containsKey(user.uid)) {
+        await _gameService.joinGame(widget.gameId);
+        // Refresh streams
+        setState(() {
+          _gameStream = _gameService.getGameStream(widget.gameId);
+          _scoresStream = _gameService.getGameScoresStream(widget.gameId);
+        });
+      }
+    } catch (e) {
+      print('Error auto-joining game: $e');
+      // Don't show error to user as this is an automatic action
     }
   }
   
