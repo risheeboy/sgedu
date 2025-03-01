@@ -44,9 +44,26 @@ final appRouter = GoRouter(
     // If user signs in, update last login
     if (user != null) {
       await UserService.updateLastLogin(user.uid);
+      
+      // No need to redirect authenticated users
+      return null;
     }
     
-    // No redirects needed currently, but could add authenticated route protection here
+    // For unauthenticated users, check if they're trying to access protected routes
+    final isLoggingIn = state.matchedLocation == '/login';
+    
+    // List of paths that require authentication
+    final requiresAuth = state.matchedLocation.startsWith('/game/') || 
+                        state.matchedLocation.startsWith('/games') ||
+                        state.matchedLocation.startsWith('/quiz/');
+    
+    // If the route requires auth and user is not logged in, redirect to login
+    // Also store the original path in the query parameters
+    if (requiresAuth && !isLoggingIn) {
+      return '/login?from=${Uri.encodeComponent(state.uri.toString())}';
+    }
+    
+    // No redirect needed
     return null;
   },
   routes: [
@@ -107,35 +124,51 @@ final appRouter = GoRouter(
       ),
     ),
     
-    // Login route - redirects to home after sign-in
+    // Login route - redirects back to original URL after sign-in
     GoRoute(
       path: '/login',
-      builder: (context, state) => Scaffold(
-        appBar: const CommonAppBar(
-          title: 'Sign In',
-          showQuizButton: false,
-          showGameButton: false,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Please sign in to continue', style: TextStyle(fontSize: 18)),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.login),
-                label: const Text('Sign in with Google'),
-                onPressed: () async {
-                  await signInWithGoogle();
-                  if (context.mounted) {
-                    context.go('/');
-                  }
-                },
-              ),
-            ],
+      builder: (context, state) {
+        // Get the redirect URL from query parameters
+        final redirectUrl = state.uri.queryParameters['from'];
+        
+        return Scaffold(
+          appBar: const CommonAppBar(
+            title: 'Sign In',
+            showQuizButton: false,
+            showGameButton: false,
           ),
-        ),
-      ),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Please sign in to continue', style: TextStyle(fontSize: 18)),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.login),
+                  label: const Text('Sign in with Google'),
+                  onPressed: () async {
+                    await signInWithGoogle();
+                    if (context.mounted) {
+                      // If we have a redirectUrl, go there, otherwise go to home
+                      if (redirectUrl != null && redirectUrl.isNotEmpty) {
+                        try {
+                          final uri = Uri.parse(redirectUrl);
+                          context.go(uri.path);
+                        } catch (e) {
+                          // If parsing fails, go to home
+                          context.go('/');
+                        }
+                      } else {
+                        context.go('/');
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     ),
   ],
   errorBuilder: (context, state) => Scaffold(
