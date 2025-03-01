@@ -41,20 +41,10 @@ class GameService {
 
   // Get a specific game by ID
   Stream<Game?> getGameStream(String gameId) {
-    print('GameService: Requesting game stream for ID: $gameId');
-    if (gameId.isEmpty) {
-      print('GameService: Warning - Empty gameId provided to getGameStream');
-      return Stream.value(null);
-    }
-    
     return _games
         .doc(gameId)
         .snapshots()
-        .map((snapshot) {
-          final exists = snapshot.exists;
-          print('GameService: Game document exists: $exists for ID: $gameId');
-          return exists ? Game.fromFirestore(snapshot) : null;
-        });
+        .map((snapshot) => snapshot.exists ? Game.fromFirestore(snapshot) : null);
   }
 
   // Create a new game

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:html' as html;
+import 'package:go_router/go_router.dart';
 import '../models/quiz.dart';
 import '../services/quiz_service.dart';
 
@@ -55,22 +54,7 @@ class QuizListDialog extends StatelessWidget {
                           subtitle: Text('${quiz.questionIds.length} questions'),
                           onTap: () {
                             Navigator.pop(context); // Close dialog
-                            
-                            // Extract current question ID from the URL
-                            try {
-                              final currentPath = html.window.location.pathname;
-                              if (currentPath?.contains('/question/') ?? false) {
-                                // Keep the URL as is since the router will extract the question ID
-                                print('Navigating to quiz from question page: $currentPath');
-                              }
-                            } catch (e) {
-                              print('Error getting current path: $e');
-                            }
-                            
-                            Navigator.pushNamed(
-                              context,
-                              '/quiz/${quiz.id}',
-                            );
+                            context.go('/quiz/${quiz.id}');
                           },
                         );
                       },

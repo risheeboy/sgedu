@@ -1,4 +1,3 @@
-import 'dart:html' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -6,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/quiz.dart';
 import '../services/quiz_service.dart';
 import '../services/feedback_service.dart';
-import '../services/question_service.dart';
 import 'chat_dialog.dart';
 
 class QuestionCard extends StatefulWidget {
@@ -29,7 +27,6 @@ class _QuestionCardState extends State<QuestionCard> {
   bool _showAnswer = false;
   Set<String> _selectedQuizIds = {};
   bool _updatingQuizzes = false;
-  bool _showFeedbackOptions = false;
   Set<String> _selectedReasons = {};
   final TextEditingController _feedbackCommentController = TextEditingController();
   final TextEditingController _userAnswerController = TextEditingController();

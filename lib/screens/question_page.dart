@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'dart:html' as html;
 import '../widgets/question_card.dart';
 import '../services/question_service.dart';
 import '../models/question.dart';
@@ -78,36 +77,12 @@ class _QuestionPageState extends State<QuestionPage> {
     super.initState();
     _topicController.addListener(() => setState(() {}));
     
-    // Check for initialQuestionId from constructor first
+    // Check for initialQuestionId from constructor
     if (widget.initialQuestionId != null && widget.initialQuestionId!.isNotEmpty) {
       print('Loading question by ID from widget parameter: ${widget.initialQuestionId}');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadQuestionById(widget.initialQuestionId!);
       });
-    } else {
-      // Otherwise check URL parameters
-      WidgetsBinding.instance.addPostFrameCallback((_) => _handleDeepLink());
-    }
-  }
-
-  void _handleDeepLink() {
-    // First check for path-based format in the URL
-    final currentPath = html.window.location.pathname;
-    if (currentPath != null && currentPath.startsWith('/question/')) {
-      final questionId = currentPath.substring(10); // Remove '/question/' prefix
-      if (questionId.isNotEmpty) {
-        print('Loading question from URL path: $questionId');
-        _loadQuestionById(questionId);
-        return;
-      }
-    }
-    
-    // Then check query parameters (fallback for older links)
-    final uri = Uri.parse(html.window.location.href);
-    final questionId = uri.queryParameters['questionId'];
-    if (questionId != null && questionId.isNotEmpty) {
-      print('Loading question from URL query parameter: $questionId');
-      _loadQuestionById(questionId);
     }
   }
 
@@ -244,7 +219,6 @@ class _QuestionPageState extends State<QuestionPage> {
       _generatedQuestions = null;
       _existingQuestions = null;
     });
-    html.window.history.replaceState(null, '', html.window.location.href);
 
     try {
       final snapshot = await questionsQuery.get();
@@ -266,9 +240,6 @@ class _QuestionPageState extends State<QuestionPage> {
         _lastDocument = snapshot.docs.last;
         final questionId = _lastDocument!.id;
         print('Updating browser history state with question ID: $questionId');
-        // Use path-based format for consistency
-        final questionPath = '/question/$questionId';
-        html.window.history.replaceState(null, '', questionPath);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -321,7 +292,7 @@ class _QuestionPageState extends State<QuestionPage> {
         appBar: CommonAppBar(
           title: 'Edu🦦Thingz',
           shareUrl: _existingQuestions != null && _existingQuestions!.isNotEmpty
-              ? '${Uri.base.origin}/question/${_existingQuestions![0].id}'
+              ? '/question/${_existingQuestions![0].id}'
               : null,
         ),
         body: _buildContent(),

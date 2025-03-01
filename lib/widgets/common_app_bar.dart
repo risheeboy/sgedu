@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:html' as html;
-import '../main.dart' show saveOriginalPath;
+import 'package:go_router/go_router.dart';
+import 'dart:js' as js;
 import 'quiz_list_dialog.dart';
 
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -71,7 +71,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
                     icon: const Icon(Icons.games),
                     tooltip: 'Game Lobby',
                     onPressed: () {
-                      html.window.location.href = '/games';
+                      context.go('/games');
                     },
                   );
                 }
@@ -89,24 +89,20 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
             icon: const Icon(Icons.share),
             tooltip: 'Share',
             onPressed: () {
+              if (shareUrl == null) return;
+              
               try {
-                // Try using Web Share API
-                html.window.navigator.share({'url': shareUrl});
+                // Try using Web Share API if available
+                if (js.context.hasProperty('navigator') && 
+                    js.context['navigator'].hasProperty('share')) {
+                  js.context['navigator'].callMethod('share', [js.JsObject.jsify({'url': shareUrl})]);
+                } else {
+                  // Fallback to clipboard
+                  _copyToClipboard(context, shareUrl!);
+                }
               } catch (e) {
                 // Fallback to clipboard
-                final textarea = html.TextAreaElement();
-                textarea.value = shareUrl;
-                html.document.body!.append(textarea);
-                textarea.select();
-                html.document.execCommand('copy');
-                textarea.remove();
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Link copied to clipboard'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
+                _copyToClipboard(context, shareUrl!);
               }
             },
           ),
@@ -134,14 +130,11 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
                   icon: const Icon(Icons.login),
                   tooltip: 'Login with Google',
                   onPressed: () {
-                    // Save the current path before login
-                    saveOriginalPath();
-                    
                     if (customSignIn != null) {
                       customSignIn!();
                     } else {
                       // Default login logic
-                      Navigator.pushNamed(context, '/login');
+                      context.go('/login');
                     }
                   },
                 );
@@ -154,6 +147,52 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ],
     );
+  }
+
+  // Helper method to copy text to clipboard
+  void _copyToClipboard(BuildContext context, String text) {
+    try {
+      // Execute JavaScript to handle clipboard copy
+      js.context.callMethod('eval', ['''
+        (function(text) {
+          // Create textarea element
+          var textarea = document.createElement('textarea');
+          
+          // Set value and styles
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          
+          // Add to document, select text, and copy
+          document.body.appendChild(textarea);
+          textarea.select();
+          
+          // Copy the text
+          document.execCommand('copy');
+          
+          // Clean up
+          document.body.removeChild(textarea);
+          
+          return true;
+        })("${text.replaceAll('"', '\\"')}")
+      ''']);
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Link copied to clipboard'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      // Show error notification
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to copy: $e'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override

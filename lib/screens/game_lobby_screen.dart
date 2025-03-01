@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:html' as html;
 import '../models/game.dart';
 import '../models/quiz.dart';
 import '../services/game_service.dart';
 import '../services/quiz_service.dart';
 import '../widgets/common_app_bar.dart';
-import 'game_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'dart:js' as js;
 
 class GameLobbyScreen extends StatefulWidget {
   final String? gameId;
@@ -35,20 +35,6 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   void initState() {
     super.initState();
     _initializeStreams();
-    _updateBrowserUrl();
-  }
-  
-  void _updateBrowserUrl() {
-    if (widget.gameId != null) {
-      final gamePath = '/game/${widget.gameId}';
-      final currentPath = html.window.location.pathname;
-      
-      // Check if we need to update the URL
-      if (currentPath != null && !currentPath.endsWith(gamePath)) {
-        // Use replaceState instead of pushState to avoid adding to history stack
-        html.window.history.replaceState(null, '', gamePath);
-      }
-    }
   }
   
   void _initializeStreams() {
@@ -65,13 +51,8 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
           }
         });
       } else {
-        // Save the current URL before redirecting
-        final currentPath = html.window.location.pathname;
-        if (currentPath != null) {
-          html.window.sessionStorage['redirect_after_login'] = currentPath;
-        }
         // Redirect to login if not signed in
-        html.window.location.href = '/login';
+        context.go('/login');
       }
     });
   }
@@ -79,23 +60,77 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   Future<void> _createNewGame(String quizId) async {
     try {
       final gameId = await _gameService.createGame(quizId: quizId);
-      // Navigate to the game screen
-      html.window.location.href = '/game/$gameId';
+      // Navigate to the game screen using go_router
+      if (mounted) {
+        context.go('/game/$gameId');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating game: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating game: $e')),
+        );
+      }
     }
   }
   
   Future<void> _joinGame(String gameId) async {
     try {
       await _gameService.joinGame(gameId);
-      // Navigate to the game screen
-      html.window.location.href = '/game/$gameId';
+      // Navigate to the game screen using go_router
+      if (mounted) {
+        context.go('/game/$gameId');
+      }
     } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error joining game: $e')),
+        );
+      }
+    }
+  }
+  
+  // Helper method to copy text to clipboard
+  void _copyToClipboard(BuildContext context, String text) {
+    try {
+      // Execute JavaScript to handle clipboard copy
+      js.context.callMethod('eval', ['''
+        (function(text) {
+          // Create textarea element
+          var textarea = document.createElement('textarea');
+          
+          // Set value and styles
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          
+          // Add to document, select text, and copy
+          document.body.appendChild(textarea);
+          textarea.select();
+          
+          // Copy the text
+          document.execCommand('copy');
+          
+          // Clean up
+          document.body.removeChild(textarea);
+          
+          return true;
+        })("${text.replaceAll('"', '\\"')}")
+      ''']);
+      
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error joining game: $e')),
+        const SnackBar(
+          content: Text('Game URL copied to clipboard'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      // Show error notification
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to copy: $e'),
+          duration: const Duration(seconds: 2),
+        ),
       );
     }
   }
@@ -153,7 +188,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    html.window.location.href = '/games';
+                    context.go('/games');
                   },
                   child: const Text('Return to Game Lobby'),
                 ),
@@ -165,11 +200,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         // If game is in progress, redirect to game screen
         if (game.status == GameStatus.inProgress || game.status == GameStatus.completed) {
           Future.microtask(() {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => GameScreen(gameId: game.id),
-              ),
-            );
+            if (mounted) {
+              context.go('/game/${game.id}');
+            }
           });
           return const Center(child: CircularProgressIndicator());
         }
@@ -214,7 +247,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              '${Uri.base.origin}/game/${game.id}',
+                              '${Uri.base.origin}/#/game/${game.id}',
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -222,50 +255,10 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                             icon: const Icon(Icons.content_copy, size: 16),
                             tooltip: 'Copy game URL',
                             onPressed: () {
-                              final gameUrl = '${Uri.base.origin}/game/${game.id}';
-                              html.window.navigator.clipboard?.writeText(gameUrl);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Game URL copied to clipboard')),
-                              );
+                              final gameUrl = '${Uri.base.origin}/#/game/${game.id}';
+                              _copyToClipboard(context, gameUrl);
                             },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.share, size: 16),
-                            tooltip: 'Share game',
-                            onPressed: () {
-                              // Create a simple share dialog
-                              final gameUrl = '${Uri.base.origin}/game/${game.id}';
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Share Game'),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Text('Share this URL with others:'),
-                                      const SizedBox(height: 8),
-                                      SelectableText(gameUrl),
-                                    ],
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        html.window.navigator.clipboard?.writeText(gameUrl);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Game URL copied to clipboard')),
-                                        );
-                                      },
-                                      child: const Text('Copy'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => Navigator.of(context).pop(),
-                                      child: const Text('Close'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                          )
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -320,7 +313,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                 onPressed: () async {
                   try {
                     await _gameService.leaveGame(game.id);
-                    html.window.location.href = '/games';
+                    context.go('/games');
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Error leaving game: $e')),
@@ -455,7 +448,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                                     
                                     final quizData = quizSnapshot.data!.data() as Map<String, dynamic>;
                                     final date = game.createdAt.toLocal();
-                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)}';
                                     return Row(
                                       children: [
                                         Expanded(
@@ -494,14 +487,14 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                               if (game.status == GameStatus.completed)
                                 ElevatedButton(
                                   onPressed: () {
-                                    html.window.location.href = '/game/${game.id}';
+                                    context.go('/game/${game.id}');
                                   },
                                   child: const Text('Results'),
                                 ),
                               if (game.status != GameStatus.completed)
                                 ElevatedButton(
                                   onPressed: () {
-                                    html.window.location.href = '/game/${game.id}';
+                                    context.go('/game/${game.id}');
                                   },
                                   child: Text(
                                     game.status == GameStatus.inProgress
@@ -516,7 +509,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  '${Uri.base.origin}/game/${game.id}',
+                                  '${Uri.base.origin}/#/game/${game.id}',
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontFamily: 'monospace'),
                                 ),
@@ -525,11 +518,8 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                                 icon: const Icon(Icons.content_copy, size: 16),
                                 tooltip: 'Copy game URL',
                                 onPressed: () {
-                                  final gameUrl = '${Uri.base.origin}/game/${game.id}';
-                                  html.window.navigator.clipboard?.writeText(gameUrl);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Game URL copied to clipboard')),
-                                  );
+                                  final gameUrl = '${Uri.base.origin}/#/game/${game.id}';
+                                  _copyToClipboard(context, gameUrl);
                                 },
                               ),
                             ],
@@ -614,7 +604,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                                     
                                     final quizData = quizSnapshot.data!.data() as Map<String, dynamic>;
                                     final date = game.createdAt.toLocal();
-                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)}';
                                     return Row(
                                       children: [
                                         Expanded(
@@ -679,7 +669,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  '${Uri.base.origin}/game/${game.id}',
+                                  '${Uri.base.origin}/#/game/${game.id}',
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontFamily: 'monospace'),
                                 ),
@@ -688,11 +678,8 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                                 icon: const Icon(Icons.content_copy, size: 16),
                                 tooltip: 'Copy game URL',
                                 onPressed: () {
-                                  final gameUrl = '${Uri.base.origin}/game/${game.id}';
-                                  html.window.navigator.clipboard?.writeText(gameUrl);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Game URL copied to clipboard')),
-                                  );
+                                  final gameUrl = '${Uri.base.origin}/#/game/${game.id}';
+                                  _copyToClipboard(context, gameUrl);
                                 },
                               ),
                             ],
