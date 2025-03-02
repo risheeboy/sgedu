@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:js' as js;
-import 'quiz_list_dialog.dart';
 
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget>? additionalActions;
-  final bool showQuizButton;
-  final bool showGameButton;
   final String? shareUrl;
   final Function? customSignIn;
   final Function? customSignOut;
@@ -19,8 +16,6 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
     Key? key, 
     this.title = 'Edu🦦Thingz',
     this.additionalActions,
-    this.showQuizButton = true,
-    this.showGameButton = true,
     this.shareUrl,
     this.customSignIn,
     this.customSignOut,
@@ -32,57 +27,82 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       title: Text(title),
-      leading: leading,
+      // Use leading if provided, otherwise show the otter logo with home navigation
+      leading: leading ?? IconButton(
+        icon: const Text(
+          '🦦',
+          style: TextStyle(fontSize: 24),
+        ),
+        tooltip: 'Home',
+        onPressed: () {
+          // Navigate to the landing page
+          context.go('/');
+        },
+      ),
       automaticallyImplyLeading: automaticallyImplyLeading,
       actions: [
-        // Quizzes dropdown button - only if showQuizButton is true
-        if (showQuizButton)
-          StreamBuilder<User?>(
-            stream: FirebaseAuth.instance.authStateChanges(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.active) {
-                final user = snapshot.data;
-                if (user != null) {
-                  return IconButton(
-                    icon: const Icon(Icons.quiz),
-                    tooltip: 'Your Quizzes',
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) => const QuizListDialog(),
-                      );
-                    },
-                  );
-                }
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-          
-        // Game lobby button - only if showGameButton is true
-        if (showGameButton)
-          StreamBuilder<User?>(
-            stream: FirebaseAuth.instance.authStateChanges(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.active) {
-                final user = snapshot.data;
-                if (user != null) {
-                  return IconButton(
-                    icon: const Icon(Icons.games),
-                    tooltip: 'Game Lobby',
-                    onPressed: () {
-                      context.go('/games');
-                    },
-                  );
-                }
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-          
         // Additional actions specific to each screen
         if (additionalActions != null) ...additionalActions!,
         
+        // Game lobby button
+        StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.active) {
+              final user = snapshot.data;
+              return IconButton(
+                icon: const Icon(Icons.games),
+                tooltip: user != null ? 'Game Lobby' : 'Sign in to play games',
+                onPressed: () {
+                  if (user != null) {
+                    context.go('/games');
+                  } else {
+                    // Show sign-in dialog or redirect to sign-in page
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Sign In Required'),
+                          content: const Text('You need to sign in to access the game lobby.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                if (customSignIn != null) {
+                                  customSignIn!();
+                                } else {
+                                  context.go('/signin');
+                                }
+                              },
+                              child: const Text('Sign In'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  }
+                },
+              );
+            }
+            return const SizedBox.shrink(); // Only during connection state check
+          },
+        ),
+
+        // Settings button
+        IconButton(
+          icon: const Icon(Icons.settings),
+          tooltip: 'Settings',
+          onPressed: () {
+            context.go('/settings');
+          },
+        ),
+          
         // Share button - only if shareUrl is provided
         if (shareUrl != null)
           IconButton(

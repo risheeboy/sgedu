@@ -5,6 +5,7 @@ import '../screens/game_lobby_screen.dart';
 import '../screens/game_screen.dart';
 import '../screens/question_page.dart';
 import '../screens/quiz_screen.dart';
+import '../screens/settings_screen.dart';
 import '../widgets/common_app_bar.dart';
 import '../services/user_service.dart';
 
@@ -90,6 +91,12 @@ final appRouter = GoRouter(
       ),
     ),
     
+    // Settings route
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
+    ),
+    
     // Quiz route
     GoRoute(
       path: '/quiz/:quizId',
@@ -134,8 +141,6 @@ final appRouter = GoRouter(
         return Scaffold(
           appBar: const CommonAppBar(
             title: 'Sign In',
-            showQuizButton: false,
-            showGameButton: false,
           ),
           body: Center(
             child: Column(

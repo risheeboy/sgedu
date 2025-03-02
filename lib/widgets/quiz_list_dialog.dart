@@ -21,7 +21,7 @@ class QuizListDialog extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Your Quizzes',
+                    'Manage Quizzes',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   IconButton(

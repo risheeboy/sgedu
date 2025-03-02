@@ -6,6 +6,7 @@ import '../models/quiz.dart';
 import '../services/quiz_service.dart';
 import '../services/feedback_service.dart';
 import 'chat_dialog.dart';
+import 'styled_card.dart';
 
 class QuestionCard extends StatefulWidget {
   final dynamic question;
@@ -291,7 +292,7 @@ class _QuestionCardState extends State<QuestionCard> {
     final hasMcqChoices = widget.question.mcqChoices != null && 
                           widget.question.mcqChoices!.isNotEmpty;
 
-    return Card(
+    return StyledCard(
       margin: const EdgeInsets.all(8.0),
       child: Padding(
         padding: const EdgeInsets.all(16.0),

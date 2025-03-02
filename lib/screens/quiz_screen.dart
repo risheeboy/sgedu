@@ -251,7 +251,6 @@ class _QuizScreenState extends State<QuizScreen> {
       return Scaffold(
         appBar: CommonAppBar(
           title: 'Quiz Error',
-          showQuizButton: true,
         ),
         body: Center(
           child: Text(_error!),
@@ -263,7 +262,6 @@ class _QuizScreenState extends State<QuizScreen> {
       return Scaffold(
         appBar: CommonAppBar(
           title: 'Quiz',
-          showQuizButton: true,
         ),
         body: const Center(
           child: Text('No questions available'),
