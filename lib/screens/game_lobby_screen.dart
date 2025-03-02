@@ -8,6 +8,7 @@ import '../services/quiz_service.dart';
 import '../widgets/common_app_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:js' as js;
+import 'package:qr_flutter/qr_flutter.dart';
 
 class GameLobbyScreen extends StatefulWidget {
   final String? gameId;
@@ -135,6 +136,48 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     }
   }
   
+  void _showGameQRCode(BuildContext context, String gameId) {
+    final gameUrl = '${Uri.base.origin}/#/game/$gameId';
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Game Invite QR Code',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: QrImageView(
+                  data: gameUrl,
+                  size: 240,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -258,7 +301,14 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                               final gameUrl = '${Uri.base.origin}/#/game/${game.id}';
                               _copyToClipboard(context, gameUrl);
                             },
-                          )
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.qr_code, size: 16),
+                            tooltip: 'Show QR Code',
+                            onPressed: () {
+                              _showGameQRCode(context, game.id);
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -330,369 +380,374 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   }
   
   Widget _buildGamesList() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Create a New Game',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 16),
-          // Show user quizzes to create a game from
-          StreamBuilder<List<Quiz>>(
-            stream: _userQuizzesStream,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              
-              if (snapshot.hasError) {
-                return Text('Error: ${snapshot.error}');
-              }
-              
-              final quizzes = snapshot.data ?? [];
-              
-              if (quizzes.isEmpty) {
-                return const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('You haven\'t created any quizzes yet. Create a quiz first to start a game.'),
-                  ),
-                );
-              }
-              
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Select a quiz to create a game:'),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8.0,
-                    runSpacing: 8.0,
-                    children: quizzes.map((quiz) {
-                      return ElevatedButton(
-                        onPressed: () => _createNewGame(quiz.id),
-                        child: Text(quiz.name),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              );
-            },
-          ),
-          
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 16),
-          
-          Text(
-            'Your Games',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 16),
-          
-          // Show user's active games
-          StreamBuilder<List<Game>>(
-            stream: _userGamesStream,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              
-              if (snapshot.hasError) {
-                return Text('Error: ${snapshot.error}');
-              }
-              
-              final games = snapshot.data ?? [];
-              
-              if (games.isEmpty) {
-                return const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('You are not participating in any games'),
-                  ),
-                );
-              }
-              
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: games.length,
-                itemBuilder: (context, index) {
-                  final game = games[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8.0),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Create a New Game',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+            // Show user quizzes to create a game from
+            StreamBuilder<List<Quiz>>(
+              stream: _userQuizzesStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                }
+                
+                final quizzes = snapshot.data ?? [];
+                
+                if (quizzes.isEmpty) {
+                  return const Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FutureBuilder<DocumentSnapshot>(
-                                  future: FirebaseFirestore.instance
-                                      .collection('quizzes')
-                                      .doc(game.quizId)
-                                      .get(),
-                                  builder: (context, quizSnapshot) {
-                                    if (quizSnapshot.connectionState == ConnectionState.waiting) {
-                                      return const Text('Loading...');
-                                    }
-                                    
-                                    if (quizSnapshot.hasError || !quizSnapshot.hasData || !quizSnapshot.data!.exists) {
-                                      return const Text('Quiz not available');
-                                    }
-                                    
-                                    final quizData = quizSnapshot.data!.data() as Map<String, dynamic>;
-                                    final date = game.createdAt.toLocal();
-                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)}';
-                                    return Row(
-                                      children: [
-                                        Expanded(
-                                          child: RichText(
-                                            text: TextSpan(
-                                              style: Theme.of(context).textTheme.bodyMedium,
-                                              children: [
-                                                TextSpan(
-                                                  text: quizData['name'],
-                                                  style: Theme.of(context).textTheme.titleMedium,
-                                                ),
-                                                const TextSpan(text: '  '), // Space between name and date
-                                                TextSpan(
-                                                  text: dateStr,
-                                                  style: const TextStyle(color: Colors.grey),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        Text(
-                                          '${game.players.length} players',
-                                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(child: Text('Status: ${game.status.toString().split('.').last}')),
-                              if (game.status == GameStatus.completed)
-                                ElevatedButton(
-                                  onPressed: () {
-                                    context.go('/game/${game.id}');
-                                  },
-                                  child: const Text('Results'),
-                                ),
-                              if (game.status != GameStatus.completed)
-                                ElevatedButton(
-                                  onPressed: () {
-                                    context.go('/game/${game.id}');
-                                  },
-                                  child: Text(
-                                    game.status == GameStatus.inProgress
-                                      ? 'Continue'
-                                      : 'Join'
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${Uri.base.origin}/#/game/${game.id}',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontFamily: 'monospace'),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.content_copy, size: 16),
-                                tooltip: 'Copy game URL',
-                                onPressed: () {
-                                  final gameUrl = '${Uri.base.origin}/#/game/${game.id}';
-                                  _copyToClipboard(context, gameUrl);
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                      padding: EdgeInsets.all(16.0),
+                      child: Text('You haven\'t created any quizzes yet. Create a quiz first to start a game.'),
                     ),
                   );
-                },
-              );
-            },
-          ),
-          
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 16),
-          
-          Text(
-            'Public Games',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 16),
-          
-          // Show public available games
-          StreamBuilder<List<Game>>(
-            stream: _publicGamesStream,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              
-              if (snapshot.hasError) {
-                return Text('Error: ${snapshot.error}');
-              }
-              
-              final games = snapshot.data ?? [];
-              
-              if (games.isEmpty) {
-                return const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('No public games available'),
-                  ),
+                }
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Select a quiz to create a game:'),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: quizzes.map((quiz) {
+                        return ElevatedButton(
+                          onPressed: () => _createNewGame(quiz.id),
+                          child: Text(quiz.name),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 );
-              }
-              
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: games.length,
-                itemBuilder: (context, index) {
-                  final game = games[index];
-                  
-                  // Skip if user is already in this game
-                  if (game.players.containsKey(_auth.currentUser?.uid)) {
-                    return const SizedBox.shrink();
-                  }
-                  
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8.0),
+              },
+            ),
+            
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
+            
+            Text(
+              'Your Games',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+            
+            // Show user's active games
+            StreamBuilder<List<Game>>(
+              stream: _userGamesStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                }
+                
+                final games = snapshot.data ?? [];
+                
+                if (games.isEmpty) {
+                  return const Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FutureBuilder<DocumentSnapshot>(
-                                  future: FirebaseFirestore.instance
-                                      .collection('quizzes')
-                                      .doc(game.quizId)
-                                      .get(),
-                                  builder: (context, quizSnapshot) {
-                                    if (quizSnapshot.connectionState == ConnectionState.waiting) {
-                                      return const Text('Loading...');
-                                    }
-                                    
-                                    if (quizSnapshot.hasError || !quizSnapshot.hasData || !quizSnapshot.data!.exists) {
-                                      return const Text('Quiz not available');
-                                    }
-                                    
-                                    final quizData = quizSnapshot.data!.data() as Map<String, dynamic>;
-                                    final date = game.createdAt.toLocal();
-                                    final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)}';
-                                    return Row(
-                                      children: [
-                                        Expanded(
-                                          child: RichText(
-                                            text: TextSpan(
-                                              style: Theme.of(context).textTheme.bodyMedium,
-                                              children: [
-                                                TextSpan(
-                                                  text: quizData['name'],
-                                                  style: Theme.of(context).textTheme.titleMedium,
-                                                ),
-                                                const TextSpan(text: '  '), // Space between name and date
-                                                TextSpan(
-                                                  text: dateStr,
-                                                  style: const TextStyle(color: Colors.grey),
-                                                ),
-                                              ],
+                      padding: EdgeInsets.all(16.0),
+                      child: Text('You are not participating in any games'),
+                    ),
+                  );
+                }
+                
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: games.length,
+                  itemBuilder: (context, index) {
+                    final game = games[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FutureBuilder<DocumentSnapshot>(
+                                    future: FirebaseFirestore.instance
+                                        .collection('quizzes')
+                                        .doc(game.quizId)
+                                        .get(),
+                                    builder: (context, quizSnapshot) {
+                                      if (quizSnapshot.connectionState == ConnectionState.waiting) {
+                                        return const Text('Loading...');
+                                      }
+                                      
+                                      if (quizSnapshot.hasError || !quizSnapshot.hasData || !quizSnapshot.data!.exists) {
+                                        return const Text('Quiz not available');
+                                      }
+                                      
+                                      final quizData = quizSnapshot.data!.data() as Map<String, dynamic>;
+                                      final date = game.createdAt.toLocal();
+                                      final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                                      return Row(
+                                        children: [
+                                          Expanded(
+                                            child: RichText(
+                                              text: TextSpan(
+                                                style: Theme.of(context).textTheme.bodyMedium,
+                                                children: [
+                                                  TextSpan(
+                                                    text: quizData['name'],
+                                                    style: Theme.of(context).textTheme.titleMedium,
+                                                  ),
+                                                  const TextSpan(text: '  '), // Space between name and date
+                                                  TextSpan(
+                                                    text: dateStr,
+                                                    style: const TextStyle(color: Colors.grey),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        Text(
-                                          '${game.players.length} players',
-                                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                        ),
-                                      ],
-                                    );
-                                  },
+                                          Text(
+                                            '${game.players.length} players',
+                                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(child: Text('Host: ${game.players[game.hostId] ?? 'Unknown'}')),
-                              if (game.status == GameStatus.completed)
-                                ElevatedButton(
-                                  onPressed: () => _joinGame(game.id),
-                                  child: const Text('Results'),
-                                ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Text('Status: ${game.status.toString().split('.').last}'),
-                              if (game.status != GameStatus.completed)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8.0),
-                                  child: ElevatedButton(
-                                    onPressed: () => _joinGame(game.id),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(child: Text('Status: ${game.status.toString().split('.').last}')),
+                                if (game.status == GameStatus.completed)
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      context.go('/game/${game.id}');
+                                    },
+                                    child: const Text('Results'),
+                                  ),
+                                if (game.status != GameStatus.completed)
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      context.go('/game/${game.id}');
+                                    },
                                     child: Text(
                                       game.status == GameStatus.inProgress
-                                        ? 'Spectate'
-                                        : 'Join'
+                                        ? 'Continue'
+                                        : 'Join',
                                     ),
                                   ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${Uri.base.origin}/#/game/${game.id}',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontFamily: 'monospace'),
+                                  ),
                                 ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${Uri.base.origin}/#/game/${game.id}',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontFamily: 'monospace'),
+                                IconButton(
+                                  icon: const Icon(Icons.content_copy, size: 16),
+                                  tooltip: 'Copy game URL',
+                                  onPressed: () {
+                                    final gameUrl = '${Uri.base.origin}/#/game/${game.id}';
+                                    _copyToClipboard(context, gameUrl);
+                                  },
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.content_copy, size: 16),
-                                tooltip: 'Copy game URL',
-                                onPressed: () {
-                                  final gameUrl = '${Uri.base.origin}/#/game/${game.id}';
-                                  _copyToClipboard(context, gameUrl);
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
+                                IconButton(
+                                  icon: const Icon(Icons.qr_code, size: 16),
+                                  tooltip: 'Show QR Code',
+                                  onPressed: () {
+                                    _showGameQRCode(context, game.id);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
+                    );
+                  },
+                );
+              },
+            ),
+            
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
+            
+            Text(
+              'Public Games',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+            
+            // Show public available games
+            StreamBuilder<List<Game>>(
+              stream: _publicGamesStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                }
+                
+                final games = snapshot.data ?? [];
+                
+                if (games.isEmpty) {
+                  return const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text('No public games available'),
                     ),
                   );
-                },
-              );
-            },
-          ),
-        ],
+                }
+                
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: games.length,
+                  itemBuilder: (context, index) {
+                    final game = games[index];
+                    
+                    // Skip if user is already in this game
+                    if (game.players.containsKey(_auth.currentUser?.uid)) {
+                      return const SizedBox.shrink();
+                    }
+                    
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FutureBuilder<DocumentSnapshot>(
+                                    future: FirebaseFirestore.instance
+                                        .collection('quizzes')
+                                        .doc(game.quizId)
+                                        .get(),
+                                    builder: (context, quizSnapshot) {
+                                      if (quizSnapshot.connectionState == ConnectionState.waiting) {
+                                        return const Text('Loading...');
+                                      }
+                                      
+                                      if (quizSnapshot.hasError || !quizSnapshot.hasData || !quizSnapshot.data!.exists) {
+                                        return const Text('Quiz not available');
+                                      }
+                                      
+                                      final quizData = quizSnapshot.data!.data() as Map<String, dynamic>;
+                                      final date = game.createdAt.toLocal();
+                                      final dateStr = '${date.day}/${date.month}/${date.year.toString().substring(2)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                                      return Row(
+                                        children: [
+                                          Expanded(
+                                            child: RichText(
+                                              text: TextSpan(
+                                                style: Theme.of(context).textTheme.bodyMedium,
+                                                children: [
+                                                  TextSpan(
+                                                    text: quizData['name'],
+                                                    style: Theme.of(context).textTheme.titleMedium,
+                                                  ),
+                                                  const TextSpan(text: '  '), // Space between name and date
+                                                  TextSpan(
+                                                    text: dateStr,
+                                                    style: const TextStyle(color: Colors.grey),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${game.players.length} players',
+                                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                Text('Status: ${game.status.toString().split('.').last}'),
+                                if (game.status != GameStatus.completed)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 8.0),
+                                    child: ElevatedButton(
+                                      onPressed: () => _joinGame(game.id),
+                                      child: Text(
+                                        game.status == GameStatus.inProgress
+                                          ? 'Spectate'
+                                          : 'Join'
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${Uri.base.origin}/#/game/${game.id}',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontFamily: 'monospace'),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.content_copy, size: 16),
+                                  tooltip: 'Copy game URL',
+                                  onPressed: () {
+                                    final gameUrl = '${Uri.base.origin}/#/game/${game.id}';
+                                    _copyToClipboard(context, gameUrl);
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.qr_code, size: 16),
+                                  tooltip: 'Show QR Code',
+                                  onPressed: () {
+                                    _showGameQRCode(context, game.id);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
