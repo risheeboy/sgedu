@@ -490,20 +490,86 @@ class _GameScreenState extends State<GameScreen> {
   }
   
   Widget _buildGameInProgressScreen(Game game) {
-    return Row(
-      children: [
-        // Game content area
-        Expanded(
-          flex: 3,
-          child: _buildQuestionArea(game),
-        ),
-        // Leaderboard sidebar
-        Expanded(
-          flex: 1,
-          child: _buildLeaderboard(game),
-        ),
-      ],
-    );
+    // Get the screen width to determine layout
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600; // Threshold for mobile screens
+    
+    if (isSmallScreen) {
+      // For small screens (mobile), use a Column layout with a collapsible leaderboard
+      return Column(
+        children: [
+          // Game content area (takes most of the screen)
+          Expanded(
+            flex: 4,
+            child: _buildQuestionArea(game),
+          ),
+          
+          // Collapsible leaderboard section
+          ExpansionTile(
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Leaderboard'),
+                // Show top 3 scores in a compact format
+                if (_playerScores.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: () {
+                      final sortedEntries = _playerScores.entries.toList()
+                        ..sort((a, b) => b.value.compareTo(a.value));
+                      return sortedEntries.take(3).map((entry) {
+                        final userId = entry.key;
+                        final score = entry.value;
+                        final isCurrentUser = userId == _auth.currentUser?.uid;
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                            decoration: BoxDecoration(
+                              color: isCurrentUser ? Colors.blue[100] : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${score}',
+                              style: TextStyle(
+                                fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList();
+                    }(),
+                  ),
+              ],
+            ),
+            children: [
+              SizedBox(
+                height: 150, // Fixed height for the expanded leaderboard
+                child: _buildLeaderboard(game),
+              ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      // For larger screens, keep the side-by-side layout but adjust the ratio
+      return Row(
+        children: [
+          // Game content area
+          Expanded(
+            flex: 3,
+            child: _buildQuestionArea(game),
+          ),
+          // Leaderboard sidebar
+          Expanded(
+            flex: 1,
+            child: _buildLeaderboard(game),
+          ),
+        ],
+      );
+    }
   }
   
   Widget _buildQuestionArea(Game game) {
@@ -634,7 +700,7 @@ class _GameScreenState extends State<GameScreen> {
                   
                 // Show feedback if answer was submitted or if showing answer
                 if (_showAnswer || _hasSubmittedAnswer)
-                  ..._buildAnswerFeedback(),
+                  ..._buildAnswerFeedback(game),
               ],
             ),
           ),
@@ -706,7 +772,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
   
-  List<Widget> _buildAnswerFeedback() {
+  List<Widget> _buildAnswerFeedback(Game game) {
     if (_currentQuestion == null || _feedback.isEmpty) {
       return [];
     }
@@ -743,12 +809,14 @@ class _GameScreenState extends State<GameScreen> {
         physics: const NeverScrollableScrollPhysics(),
       ),
       const SizedBox(height: 16),
-      Center(
-        child: ElevatedButton(
-          onPressed: _goToNextQuestion,
-          child: const Text('Next Question'),
+      // Only show the 'Next Question' button to the game host
+      if (_auth.currentUser != null && game.hostId == _auth.currentUser!.uid)
+        Center(
+          child: ElevatedButton(
+            onPressed: _goToNextQuestion,
+            child: const Text('Next Question'),
+          ),
         ),
-      ),
     ];
   }
   
