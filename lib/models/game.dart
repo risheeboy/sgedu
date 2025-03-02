@@ -51,21 +51,21 @@ class Game {
     );
   }
 
-  // Convert Game object to Firestore document
+  // Convert Game object to a map for Firestore
   Map<String, dynamic> toFirestore() {
     return {
       'quizId': quizId,
       'hostId': hostId,
-      'status': status.toString().split('.').last,
+      'status': _gameStatusToString(status),
       'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
       'players': players,
       'playerIds': playerIds,
       'currentQuestionIndex': currentQuestionIndex,
       'isPublic': isPublic,
     };
   }
-
+  
   // Create a copy of the Game with updated fields
   Game copyWith({
     String? id,
@@ -79,8 +79,6 @@ class Game {
     int? currentQuestionIndex,
     bool? isPublic,
   }) {
-    final updatedPlayers = players ?? Map<String, String>.from(this.players);
-    
     return Game(
       id: id ?? this.id,
       quizId: quizId ?? this.quizId,
@@ -88,8 +86,8 @@ class Game {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      players: updatedPlayers,
-      playerIds: playerIds ?? (players != null ? updatedPlayers.keys.toList() : this.playerIds),
+      players: players ?? Map.from(this.players),
+      playerIds: playerIds ?? List.from(this.playerIds),
       currentQuestionIndex: currentQuestionIndex ?? this.currentQuestionIndex,
       isPublic: isPublic ?? this.isPublic,
     );
@@ -110,50 +108,14 @@ GameStatus _gameStatusFromString(String status) {
   }
 }
 
-// Class to represent a player's score in a game
-class GameScore {
-  final String gameId;
-  final String userId;
-  final String questionId;
-  final bool isCorrect;
-  final int score;
-  final String userAnswer;
-  final DateTime submittedAt;
-
-  GameScore({
-    required this.gameId,
-    required this.userId,
-    required this.questionId,
-    required this.isCorrect,
-    required this.score,
-    required this.userAnswer,
-    required this.submittedAt,
-  });
-
-  // Convert Firestore document to GameScore object
-  factory GameScore.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return GameScore(
-      gameId: data['gameId'] ?? '',
-      userId: data['userId'] ?? '',
-      questionId: data['questionId'] ?? '',
-      isCorrect: data['isCorrect'] ?? false,
-      score: data['score'] ?? 0,
-      userAnswer: data['userAnswer'] ?? '',
-      submittedAt: (data['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
-  }
-
-  // Convert GameScore object to Firestore document
-  Map<String, dynamic> toFirestore() {
-    return {
-      'gameId': gameId,
-      'userId': userId,
-      'questionId': questionId,
-      'isCorrect': isCorrect,
-      'score': score,
-      'userAnswer': userAnswer,
-      'submittedAt': Timestamp.fromDate(submittedAt),
-    };
+// Helper function to convert GameStatus enum to string
+String _gameStatusToString(GameStatus status) {
+  switch (status) {
+    case GameStatus.waiting:
+      return 'waiting';
+    case GameStatus.inProgress:
+      return 'inProgress';
+    case GameStatus.completed:
+      return 'completed';
   }
 }

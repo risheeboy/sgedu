@@ -324,12 +324,13 @@ export const validateAnswer = onDocumentWritten(
         
         Question's correct answer: "${correctAnswer}"
         Student's submitted answer: "${userAnswer}"
+        Maximum score: 2
         
         Please analyze in detail and respond with a valid JSON object containing ONLY these fields:
         {
           "isCorrect": boolean, // true if the answer is correct, false otherwise
           "feedback": string, // constructive feedback explaining what was good, what was missing or incorrect
-          "confidenceScore": number // a score between 0-1 representing your confidence in this assessment
+          "score": number // 0, 1 or 2 score to be assigned to the student's answer
         }
         
         Be somewhat lenient with minor spelling errors or different phrasings that convey the same meaning.
@@ -365,7 +366,7 @@ export const validateAnswer = onDocumentWritten(
       const feedbackJson = JSON.parse(jsonMatch[0]) as {
         isCorrect: boolean;
         feedback: string;
-        confidenceScore: number;
+        score: number;
       };
       
       // Make sure event.data.after exists
@@ -378,7 +379,7 @@ export const validateAnswer = onDocumentWritten(
         status: 'completed',
         isCorrect: feedbackJson.isCorrect,
         feedback: feedbackJson.feedback,
-        confidenceScore: feedbackJson.confidenceScore,
+        score: feedbackJson.score,
         processedAt: admin.firestore.FieldValue.serverTimestamp()
       });
       

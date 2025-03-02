@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/game.dart';
 import '../models/quiz.dart';
 import '../models/question.dart';
+import '../models/score.dart';
 import '../services/score_service.dart';
 import 'quiz_service.dart';
 
@@ -226,70 +227,75 @@ class GameService {
     }
   }
 
-  // Submit an answer for a question
-  Future<void> submitAnswer({
-    required String gameId,
-    required String questionId,
-    required String answer,
-    required bool isCorrect,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw Exception('Must be signed in to submit an answer');
+  // Register a player's score with question details
+  Future<void> registerPlayerScore(String gameId, String userId, int score, String questionId) async {
+    try {
+      final questionDoc = await getQuestion(questionId);
+      if (questionDoc.id == null) {
+        throw Exception('Question not found');
+      }
+      
+      // Use the current user's answer if available (for MCQ questions)
+      // This is a simplified version - in a real implementation, you'd pass the actual user answer
+      final userAnswer = ""; // Placeholder for MCQ selection or text answer
+      final isCorrect = score > 0; // If score is positive, answer is correct
+      
+      // Create a score document using the Score model
+      final scoreDoc = Score.createCompleted(
+        gameId: gameId,
+        questionId: questionId,
+        userId: userId,
+        userAnswer: userAnswer,
+        correctAnswer: questionDoc.correctAnswer,
+        isCorrect: isCorrect,
+        score: score,
+      );
+      
+      // Add to scores subcollection
+      await _games
+          .doc(gameId)
+          .collection('scores')
+          .add(scoreDoc.toFirestore());
+      
+      print('Successfully registered score $score for player $userId on question $questionId');
+    } catch (e) {
+      print('Error registering player score: $e');
     }
+  }
 
-    final gameDoc = await _games.doc(gameId).get();
-    if (!gameDoc.exists) {
-      throw Exception('Game not found');
+  // Get a question by ID
+  Future<Question> getQuestion(String questionId) async {
+    try {
+      final questionDoc = await FirebaseFirestore.instance
+          .collection('questions')
+          .doc(questionId)
+          .get();
+      
+      if (!questionDoc.exists) {
+        throw Exception('Question not found');
+      }
+      
+      return Question.fromFirestore(questionDoc);
+    } catch (e) {
+      print('Error getting question: $e');
+      throw Exception('Failed to load question: $e');
     }
-
-    final game = Game.fromFirestore(gameDoc);
-    
-    // Check if game is in progress
-    if (game.status != GameStatus.inProgress) {
-      throw Exception('Game is not in progress');
-    }
-
-    // Check if user is a player
-    if (!game.players.containsKey(user.uid)) {
-      throw Exception('You are not a player in this game');
-    }
-
-    // Calculate score (could be more sophisticated based on time, etc.)
-    final score = isCorrect ? 10 : 0;
-
-    // Create a new score document
-    final scoreData = GameScore(
-      gameId: gameId,
-      userId: user.uid,
-      questionId: questionId,
-      isCorrect: isCorrect,
-      score: score,
-      userAnswer: answer,
-      submittedAt: DateTime.now(),
-    );
-
-    // Add to scores subcollection
-    await _games
-        .doc(gameId)
-        .collection('scores')
-        .add(scoreData.toFirestore());
   }
 
   // Get scores for a game
-  Stream<List<GameScore>> getGameScoresStream(String gameId) {
+  Stream<List<Score>> getGameScoresStream(String gameId) {
     return _games
         .doc(gameId)
         .collection('scores')
         .orderBy('submittedAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => GameScore.fromFirestore(doc))
+            .map((doc) => Score.fromFirestore(doc))
             .toList());
   }
 
   // Get user scores for a specific game
-  Stream<List<GameScore>> getUserGameScoresStream(String gameId, String userId) {
+  Stream<List<Score>> getUserGameScoresStream(String gameId, String userId) {
     return _games
         .doc(gameId)
         .collection('scores')
@@ -297,7 +303,7 @@ class GameService {
         .orderBy('submittedAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => GameScore.fromFirestore(doc))
+            .map((doc) => Score.fromFirestore(doc))
             .toList());
   }
 
@@ -329,44 +335,6 @@ class GameService {
     
     return quiz.questionIds[game.currentQuestionIndex];
   }
-  
-  // Increment a player's score in a game
-  Future<void> incrementPlayerScore(String gameId, String userId) async {
-    try {
-      // Update the score in the games/gameId/scores/userId document
-      await _games
-          .doc(gameId)
-          .collection('scores')
-          .doc(userId)
-          .set({
-            'score': FieldValue.increment(1),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-      
-      print('Successfully incremented score for player $userId in game $gameId');
-    } catch (e) {
-      print('Error incrementing player score: $e');
-    }
-  }
-
-  // Get a question by ID
-  Future<Question> getQuestion(String questionId) async {
-    try {
-      final questionDoc = await FirebaseFirestore.instance
-          .collection('questions')
-          .doc(questionId)
-          .get();
-      
-      if (!questionDoc.exists) {
-        throw Exception('Question not found');
-      }
-      
-      return Question.fromFirestore(questionDoc);
-    } catch (e) {
-      print('Error getting question: $e');
-      throw Exception('Failed to load question: $e');
-    }
-  }
 
   // Get a leaderboard of scores for a game
   Future<Map<String, int>> getGameLeaderboard(String gameId) async {
@@ -388,14 +356,15 @@ class GameService {
       for (final doc in scoresSnapshot.docs) {
         final data = doc.data();
         final userId = data['userId'] as String;
+        final questionId = data['questionId'] as String;
         
-        // Check if this score is correct and should add points
-        final isCorrect = data['isCorrect'] as bool? ?? false;
+        // Use the score field directly from the document
+        final score = data['score'] as int? ?? 0;
         
-        // Add 1 point for each correct answer
-        if (isCorrect) {
-          scoresByUser[userId] = (scoresByUser[userId] ?? 0) + 1;
-        }
+        print('User: $userId, Question: $questionId, Score: $score');
+        
+        // Add the score to the user's total
+        scoresByUser[userId] = (scoresByUser[userId] ?? 0) + score;
       }
       
       print('Aggregated scores by user: $scoresByUser');
@@ -407,9 +376,9 @@ class GameService {
   }
 
   // Increment a player's score by the specified amount
-  Future<void> incrementScore(String gameId, String userId, int points) async {
+  Future<void> incrementScore(String gameId, String userId, int points, {required String questionId}) async {
     try {
-      await _scoreService.incrementScore(gameId, userId, points);
+      await _scoreService.incrementScore(gameId, userId, points, questionId);
       print('Incremented score for user $userId by $points points');
     } catch (e) {
       print('Error incrementing score: $e');

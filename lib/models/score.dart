@@ -41,8 +41,8 @@ class Score {
   final String correctAnswer;
   final ScoreStatus status;
   final bool isCorrect;
+  final int score; // Numeric score value (0, 1, 2 for non-MCQ, typically 0 or 1 for MCQ)
   final String? feedback;
-  final double? confidenceScore;
   final String? error;
   final Timestamp? timestamp;
   final Timestamp? processedAt;
@@ -59,8 +59,8 @@ class Score {
     required this.correctAnswer,
     required this.status,
     required this.isCorrect,
+    required this.score,
     this.feedback,
-    this.confidenceScore,
     this.error,
     this.timestamp,
     this.processedAt,
@@ -78,8 +78,8 @@ class Score {
       correctAnswer: json['correctAnswer'] as String,
       status: ScoreStatusExtension.fromString(json['status'] as String),
       isCorrect: json['isCorrect'] as bool,
+      score: json['score'] as int? ?? 0,
       feedback: json['feedback'] as String?,
-      confidenceScore: json['confidenceScore'] as double?,
       error: json['error'] as String?,
       timestamp: json['timestamp'] as Timestamp?,
       processedAt: json['processedAt'] as Timestamp?,
@@ -99,8 +99,8 @@ class Score {
       correctAnswer: data['correctAnswer'] as String,
       status: ScoreStatusExtension.fromString(data['status'] as String),
       isCorrect: data['isCorrect'] as bool? ?? false,
+      score: data['score'] as int? ?? 0,
       feedback: data['feedback'] as String?,
-      confidenceScore: data['confidenceScore'] as double?,
       error: data['error'] as String?,
       timestamp: data['timestamp'] as Timestamp?,
       processedAt: data['processedAt'] as Timestamp?,
@@ -118,8 +118,8 @@ class Score {
       'correctAnswer': correctAnswer,
       'status': status.value,
       'isCorrect': isCorrect,
+      'score': score,
       if (feedback != null) 'feedback': feedback,
-      if (confidenceScore != null) 'confidenceScore': confidenceScore,
       if (error != null) 'error': error,
       if (timestamp != null) 'timestamp': timestamp,
       if (processedAt != null) 'processedAt': processedAt,
@@ -127,7 +127,7 @@ class Score {
     };
   }
   
-  // Create a pending score
+  // Create a pending score for non-MCQ questions
   factory Score.createPending({
     required String gameId,
     required String questionId,
@@ -144,7 +144,36 @@ class Score {
       correctAnswer: correctAnswer,
       status: ScoreStatus.pending,
       isCorrect: false, // Default until evaluated
+      score: 0, // Default score until evaluated
       timestamp: Timestamp.now(),
+      selectedOption: selectedOption,
+    );
+  }
+  
+  // Create a completed score for MCQ questions
+  factory Score.createCompleted({
+    required String gameId,
+    required String questionId,
+    required String userId,
+    required String userAnswer,
+    required String correctAnswer,
+    required bool isCorrect,
+    required int score,
+    String? feedback,
+    String? selectedOption,
+  }) {
+    return Score(
+      gameId: gameId,
+      questionId: questionId,
+      userId: userId,
+      userAnswer: userAnswer,
+      correctAnswer: correctAnswer,
+      status: ScoreStatus.completed,
+      isCorrect: isCorrect,
+      score: score,
+      feedback: feedback ?? (isCorrect ? 'Correct!' : 'Incorrect. The correct answer is: $correctAnswer'),
+      timestamp: Timestamp.now(),
+      processedAt: Timestamp.now(),
       selectedOption: selectedOption,
     );
   }
@@ -159,8 +188,8 @@ class Score {
     String? correctAnswer,
     ScoreStatus? status,
     bool? isCorrect,
+    int? score,
     String? feedback,
-    double? confidenceScore,
     String? error,
     Timestamp? timestamp,
     Timestamp? processedAt,
@@ -175,8 +204,8 @@ class Score {
       correctAnswer: correctAnswer ?? this.correctAnswer,
       status: status ?? this.status,
       isCorrect: isCorrect ?? this.isCorrect,
+      score: score ?? this.score,
       feedback: feedback ?? this.feedback,
-      confidenceScore: confidenceScore ?? this.confidenceScore,
       error: error ?? this.error,
       timestamp: timestamp ?? this.timestamp,
       processedAt: processedAt ?? this.processedAt,

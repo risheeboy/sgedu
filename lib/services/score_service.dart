@@ -7,14 +7,14 @@ class ScoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
-  // Submit an answer for scoring
+  // Submit an answer for scoring - consolidated function for MCQ and non-MCQ questions
   Future<DocumentReference> submitAnswer({
     required String gameId,
     required Question question,
     required String userAnswer,
     String? selectedOption,
     bool? isCorrect,  // For local MCQ evaluation
-    ScoreStatus? status,  // For setting pre-evaluated status
+    int? score,      // Score value (0, 1 for MCQ, 0-2 for non-MCQ)
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -22,32 +22,28 @@ class ScoreService {
     }
     
     // For MCQ questions that are evaluated locally
-    if (isCorrect != null && status != null) {
-      // Create a score with the known evaluation result
-      final score = Score(
+    if (isCorrect != null && score != null) {
+      // Create a completed score with the known evaluation result
+      final scoreDoc = Score.createCompleted(
         gameId: gameId,
         questionId: question.id!,
         userId: user.uid,
         userAnswer: userAnswer,
         correctAnswer: question.correctAnswer,
-        selectedOption: selectedOption,
-        status: status,
         isCorrect: isCorrect,
-        feedback: isCorrect ? 'Correct!' : 'Incorrect. The correct answer is: ${question.correctAnswer}',
-        timestamp: Timestamp.now(),
-        processedAt: Timestamp.now(),
+        score: score,
+        selectedOption: selectedOption,
       );
       
+      // Add a new document with a unique ID for each answer
       return await _firestore
           .collection('games')
           .doc(gameId)
           .collection('scores')
-          .doc(user.uid)
-          .set(score.toFirestore(), SetOptions(merge: true))
-          .then((_) => _firestore.collection('games').doc(gameId).collection('scores').doc(user.uid));
+          .add(scoreDoc.toFirestore());
     } else {
       // Create a pending score for AI evaluation
-      final score = Score.createPending(
+      final scoreDoc = Score.createPending(
         gameId: gameId,
         questionId: question.id!,
         userId: user.uid,
@@ -56,11 +52,12 @@ class ScoreService {
         selectedOption: selectedOption,
       );
       
+      // Add score document with pending status for cloud function to evaluate
       return await _firestore
           .collection('games')
           .doc(gameId)
           .collection('scores')
-          .add(score.toFirestore());
+          .add(scoreDoc.toFirestore());
     }
   }
   
@@ -87,18 +84,17 @@ class ScoreService {
             .toList());
   }
   
-  // Get the most recent score for a user and question
-  Future<Score?> getUserQuestionScore(String gameId, String questionId, String userId) async {
+  // Get a specific score document by question ID for a user
+  Future<Score?> getUserQuestionScoreDoc(String gameId, String userId, String questionId) async {
     final snapshot = await _firestore
         .collection('games')
         .doc(gameId)
         .collection('scores')
         .where('userId', isEqualTo: userId)
         .where('questionId', isEqualTo: questionId)
-        .orderBy('timestamp', descending: true)
         .limit(1)
         .get();
-        
+    
     if (snapshot.docs.isEmpty) {
       return null;
     }
@@ -118,33 +114,54 @@ class ScoreService {
             snapshot.docs.map((doc) => Score.fromFirestore(doc)).toList());
   }
   
-  // Get a user's total score in a game
+  // Get a user's total score in a game by summing all score documents
   Future<int> getUserGameScore(String gameId, String userId) async {
-    final scoreSnapshot = await _firestore
+    final scoresSnapshot = await _firestore
         .collection('games')
         .doc(gameId)
         .collection('scores')
-        .doc(userId)
+        .where('userId', isEqualTo: userId)
         .get();
     
-    if (!scoreSnapshot.exists) {
-      return 0;
+    // Sum up all scores for this user
+    int totalScore = 0;
+    for (var doc in scoresSnapshot.docs) {
+      totalScore += (doc.data()['score'] as num?)?.toInt() ?? 0;
     }
     
-    final data = scoreSnapshot.data();
-    return (data?['score'] as num?)?.toInt() ?? 0;
+    return totalScore;
   }
   
-  // Increment a player's score
-  Future<void> incrementScore(String gameId, String userId, int points) async {
+  // Get a user's score for a specific question in a game
+  Future<int> getUserQuestionScore(String gameId, String userId, String questionId) async {
+    final scoresSnapshot = await _firestore
+        .collection('games')
+        .doc(gameId)
+        .collection('scores')
+        .where('userId', isEqualTo: userId)
+        .where('questionId', isEqualTo: questionId)
+        .get();
+    
+    // Sum up all scores for this user and question
+    int totalScore = 0;
+    for (var doc in scoresSnapshot.docs) {
+      totalScore += (doc.data()['score'] as num?)?.toInt() ?? 0;
+    }
+    
+    return totalScore;
+  }
+  
+  // Add points to a user's score by creating a new score document
+  Future<void> incrementScore(String gameId, String userId, int points, String questionId) async {
     await _firestore
         .collection('games')
         .doc(gameId)
         .collection('scores')
-        .doc(userId)
-        .set({
-          'score': FieldValue.increment(points),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        .add({
+          'score': points,
+          'userId': userId,
+          'questionId': questionId,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
   }
 }

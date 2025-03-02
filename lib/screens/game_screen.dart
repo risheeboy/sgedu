@@ -193,13 +193,9 @@ class _GameScreenState extends State<GameScreen> {
             userAnswer: userAnswer,
             selectedOption: _selectedMcqOption,
             isCorrect: isCorrect,
-            status: ScoreStatus.completed
+            score: isCorrect ? 1 : 0  // Award 1 point for correct answers, 0 for incorrect
           );
-          
-          // Award points immediately if correct
-          if (isCorrect) {
-            await _gameService.incrementPlayerScore(widget.gameId, user.uid);
-          }
+
         } catch (scoreError) {
           // Just log the error but don't affect the UI flow
           print('Error recording score to Firestore (non-critical): $scoreError');
@@ -217,6 +213,7 @@ class _GameScreenState extends State<GameScreen> {
             question: question,
             userAnswer: userAnswer,
             selectedOption: null
+            // No score provided, the score will be determined by the AI evaluation
           );
           
           print('Answer submitted with document ID: ${scoreRef.id}');
@@ -449,25 +446,27 @@ class _GameScreenState extends State<GameScreen> {
         ),
         Expanded(
           child: FutureBuilder<Map<String, int>>(
-            future: _gameService.getGameLeaderboard(game.id!),
+            key: ValueKey('game-${game.id}-leaderboard'),
+            future: _gameService.getGameLeaderboard(game.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               
               if (snapshot.hasError) {
+                print('Error loading leaderboard: ${snapshot.error}');
                 return Center(child: Text('Error loading scores: ${snapshot.error}'));
               }
               
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                print('No scores found for game ${game.id}');
                 return const Center(child: Text('No scores available'));
               }
               
-              // Update the player scores with the loaded data
-              _playerScores = snapshot.data!;
+              final scores = snapshot.data!;
+              print('Loaded final scores: $scores (one-time load)');
               
-              // Now build the leaderboard with the loaded scores
-              return _buildLeaderboard(game);
+              return _buildLeaderboardWithScores(game, scores);
             },
           ),
         ),
@@ -489,28 +488,103 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
   
+  Widget _buildLeaderboardWithScores(Game game, Map<String, int> scores) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+        border: Border(
+          left: BorderSide(
+            color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+            width: 1,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Leaderboard',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 16),
+          
+          Expanded(
+            child: scores.isEmpty
+                ? const Center(child: Text('No scores yet'))
+                : ListView(
+                    children: () {
+                        final sortedEntries = scores.entries.toList()
+                          ..sort((a, b) => b.value.compareTo(a.value));
+                        return sortedEntries.map((entry) {
+                          final userId = entry.key;
+                          final score = entry.value;
+                          final playerName = game.players[userId] ?? 'Unknown';
+                          final isCurrentUser = userId == _auth.currentUser?.uid;
+                          
+                          return Card(
+                            color: isCurrentUser 
+                                ? (isDarkMode ? Colors.blue[900] : Colors.blue[50])
+                                : null,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      playerName,
+                                      style: TextStyle(
+                                        fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                    decoration: BoxDecoration(
+                                      color: isDarkMode ? Colors.blue[800] : Colors.blue[100],
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      score.toString(),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isDarkMode ? Colors.white : Colors.blue[800],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList();
+                    }(),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+  
   Widget _buildGameInProgressScreen(Game game) {
-    // Get the screen width to determine layout
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 600; // Threshold for mobile screens
     
     if (isSmallScreen) {
-      // For small screens (mobile), use a Column layout with a collapsible leaderboard
       return Column(
         children: [
-          // Game content area (takes most of the screen)
           Expanded(
             flex: 4,
             child: _buildQuestionArea(game),
           ),
           
-          // Collapsible leaderboard section
           ExpansionTile(
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Leaderboard'),
-                // Show top 3 scores in a compact format
                 if (_playerScores.isNotEmpty)
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -546,7 +620,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
             children: [
               SizedBox(
-                height: 150, // Fixed height for the expanded leaderboard
+                height: 150, 
                 child: _buildLeaderboard(game),
               ),
             ],
@@ -554,15 +628,12 @@ class _GameScreenState extends State<GameScreen> {
         ],
       );
     } else {
-      // For larger screens, keep the side-by-side layout but adjust the ratio
       return Row(
         children: [
-          // Game content area
           Expanded(
             flex: 3,
             child: _buildQuestionArea(game),
           ),
-          // Leaderboard sidebar
           Expanded(
             flex: 1,
             child: _buildLeaderboard(game),
@@ -616,7 +687,6 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ),
                 
-                // Display image if available
                 if (_currentQuestion!.imageUrl != null && _currentQuestion!.imageUrl!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -644,16 +714,13 @@ class _GameScreenState extends State<GameScreen> {
                 
                 const SizedBox(height: 16),
                 
-                // Answer input based on question type
                 ..._buildAnswerInput(),
                 
                 const SizedBox(height: 16),
                 
-                // Submit answer button and feedback
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Show submit button if not yet submitted
                     if (!_hasSubmittedAnswer)
                       ElevatedButton(
                         onPressed: _isSubmitting ? null : () {
@@ -683,7 +750,6 @@ class _GameScreenState extends State<GameScreen> {
                   ],
                 ),
                 
-                // Show loading indicator if submitting
                 if (_isSubmitting)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -698,7 +764,6 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
                   
-                // Show feedback if answer was submitted or if showing answer
                 if (_showAnswer || _hasSubmittedAnswer)
                   ..._buildAnswerFeedback(game),
               ],
@@ -714,7 +779,7 @@ class _GameScreenState extends State<GameScreen> {
     
     if (options.isEmpty) {
       return [
-        _buildShortAnswerInput(), // Fallback to text input if no options
+        _buildShortAnswerInput(), 
       ];
     }
     
@@ -809,7 +874,6 @@ class _GameScreenState extends State<GameScreen> {
         physics: const NeverScrollableScrollPhysics(),
       ),
       const SizedBox(height: 16),
-      // Only show the 'Next Question' button to the game host
       if (_auth.currentUser != null && game.hostId == _auth.currentUser!.uid)
         Center(
           child: ElevatedButton(
@@ -825,11 +889,9 @@ class _GameScreenState extends State<GameScreen> {
       return [];
     }
     
-    // If the question has MCQ choices, use the MCQ options UI
     if (_currentQuestion!.mcqChoices != null && _currentQuestion!.mcqChoices!.isNotEmpty) {
       return _buildMcqOptions();
     } 
-    // Otherwise use the short answer input
     else {
       return [_buildShortAnswerInput()];
     }
@@ -838,18 +900,15 @@ class _GameScreenState extends State<GameScreen> {
   bool _isAnswerReady() {
     if (_currentQuestion == null) return false;
     
-    // For MCQ questions, check if an option is selected
     if (_currentQuestion!.mcqChoices != null && _currentQuestion!.mcqChoices!.isNotEmpty) {
       return _selectedMcqOption != null;
     } 
-    // For text-based questions, check if text is entered
     else {
       return _userAnswerController.text.trim().isNotEmpty;
     }
   }
   
   Widget _buildLeaderboard(Game game) {
-    // Use Theme to get the correct colors based on the current theme mode
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
     return Container(
@@ -872,7 +931,6 @@ class _GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Show players and their scores
           Expanded(
             child: _playerScores.isEmpty
                 ? const Center(child: Text('No scores yet'))
@@ -922,7 +980,7 @@ class _GameScreenState extends State<GameScreen> {
                             ),
                           );
                         }).toList();
-                      }(),
+                    }(),
                   ),
           ),
         ],
@@ -930,7 +988,6 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
   
-  // Go to the next question
   Future<void> _goToNextQuestion() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -945,47 +1002,38 @@ class _GameScreenState extends State<GameScreen> {
     final game = Game.fromFirestore(gameDoc);
     
     try {
-      // Check if user is the host
       if (game.hostId == user.uid) {
-        // If user is host, they can advance the game to the next question
         await _gameService.nextQuestion(widget.gameId);
       } else {
-        // If not host, just reset the question state to prepare for next question
         setState(() {
           _resetQuestionState();
         });
       }
     } catch (e) {
       print('Error going to next question: $e');
-      // Show a snackbar with the error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
     }
   }
   
-  // Setup listeners for scores from the subcollection
   void _setupScoreListeners() {
-    // Listen for real-time score updates
     FirebaseFirestore.instance
         .collection('games')
         .doc(widget.gameId)
         .collection('scores')
         .snapshots()
         .listen((snapshot) {
-      // Group the scores by user ID
       final scores = <String, int>{};
       
-      // Process each score document
       for (final doc in snapshot.docs) {
         final userId = doc.get('userId') as String;
         final score = doc.get('score') as int? ?? 0;
+        print('User: $userId, Question: ${doc.get('questionId')}, Score: $score');
         
-        // Aggregate scores by user
         scores[userId] = (scores[userId] ?? 0) + score;
       }
       
-      // Update the UI with the latest scores
       if (mounted) {
         setState(() {
           _playerScores = scores;
@@ -1000,7 +1048,6 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _userAnswerController.dispose();
     _gameSubscription?.cancel();
-    // Cancel any active score subscriptions
     _activeScoreSubscription?.cancel();
     super.dispose();
   }
