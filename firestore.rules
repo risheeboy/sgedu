@@ -83,17 +83,37 @@ service cloud.firestore {
       // Rules for scores subcollection
       match /scores/{scoreId} {
         // Game players can read all scores
-        allow read: if true;//isGamePlayer(get(/databases/$(database)/documents/games/$(gameId)).data);
+        allow read: if true;
         
         // Players can submit their own scores 
-        allow create: if isSignedIn() && 
-                        request.resource.data.userId == request.auth.uid && 
-                        isGamePlayer(get(/databases/$(database)/documents/games/$(gameId)).data);
+        allow create, update: if isSignedIn() && 
+                        (scoreId == request.auth.uid || 
+                         request.resource.data.userId == request.auth.uid);
         
-        // No updates or deletes allowed for scores 
-        allow update, delete: if false;
+        // No deletes allowed for scores 
+        allow delete: if false;
       }
     }
+    
+    /* 
+    match /scores/{scoreId} {
+      // Anyone can read scores
+      allow read: if isSignedIn();
+      
+      // Users can create their own scores
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // Scores can be updated by the system (for AI validation) or by the user who created them
+      allow update: if isSignedIn() && (
+                      request.auth.uid == resource.data.userId || 
+                      request.resource.data.status == 'completed' || 
+                      request.resource.data.status == 'error'
+                    );
+                    
+      // No deletes allowed for scores
+      allow delete: if false;
+    }
+    */
 
     // Default deny all
     match /{document=**} {

@@ -2,12 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/game.dart';
 import '../models/quiz.dart';
+import '../models/question.dart';
+import '../services/score_service.dart';
 import 'quiz_service.dart';
 
 class GameService {
   final CollectionReference _games = FirebaseFirestore.instance.collection('games');
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final QuizService _quizService = QuizService();
+  final ScoreService _scoreService = ScoreService();
 
   // Get a list of available public games
   Stream<List<Game>> getPublicGamesStream() {
@@ -298,7 +301,7 @@ class GameService {
             .toList());
   }
 
-  // Get current question for a game
+  // Get the current question for a game
   Future<String?> getCurrentQuestionId(String gameId) async {
     final gameDoc = await _games.doc(gameId).get();
     if (!gameDoc.exists) {
@@ -326,22 +329,91 @@ class GameService {
     
     return quiz.questionIds[game.currentQuestionIndex];
   }
+  
+  // Increment a player's score in a game
+  Future<void> incrementPlayerScore(String gameId, String userId) async {
+    try {
+      // Update the score in the games/gameId/scores/userId document
+      await _games
+          .doc(gameId)
+          .collection('scores')
+          .doc(userId)
+          .set({
+            'score': FieldValue.increment(1),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      
+      print('Successfully incremented score for player $userId in game $gameId');
+    } catch (e) {
+      print('Error incrementing player score: $e');
+    }
+  }
+
+  // Get a question by ID
+  Future<Question> getQuestion(String questionId) async {
+    try {
+      final questionDoc = await FirebaseFirestore.instance
+          .collection('questions')
+          .doc(questionId)
+          .get();
+      
+      if (!questionDoc.exists) {
+        throw Exception('Question not found');
+      }
+      
+      return Question.fromFirestore(questionDoc);
+    } catch (e) {
+      print('Error getting question: $e');
+      throw Exception('Failed to load question: $e');
+    }
+  }
 
   // Get a leaderboard of scores for a game
   Future<Map<String, int>> getGameLeaderboard(String gameId) async {
-    final scoresSnapshot = await _games
-        .doc(gameId)
-        .collection('scores')
-        .get();
-    
-    // Group scores by user ID and sum them
-    final scoresByUser = <String, int>{};
-    
-    for (final doc in scoresSnapshot.docs) {
-      final score = GameScore.fromFirestore(doc);
-      scoresByUser[score.userId] = (scoresByUser[score.userId] ?? 0) + score.score;
+    try {
+      print('Getting leaderboard for game: $gameId');
+      
+      // Get all score documents
+      final scoresSnapshot = await _games
+          .doc(gameId)
+          .collection('scores')
+          .where('status', isEqualTo: 'completed')
+          .get();
+      
+      print('Found ${scoresSnapshot.docs.length} score documents');
+      
+      // Group scores by user ID
+      final scoresByUser = <String, int>{};
+      
+      for (final doc in scoresSnapshot.docs) {
+        final data = doc.data();
+        final userId = data['userId'] as String;
+        
+        // Check if this score is correct and should add points
+        final isCorrect = data['isCorrect'] as bool? ?? false;
+        
+        // Add 1 point for each correct answer
+        if (isCorrect) {
+          scoresByUser[userId] = (scoresByUser[userId] ?? 0) + 1;
+        }
+      }
+      
+      print('Aggregated scores by user: $scoresByUser');
+      return scoresByUser;
+    } catch (e) {
+      print('Error getting game leaderboard: $e');
+      return {};
     }
-    
-    return scoresByUser;
+  }
+
+  // Increment a player's score by the specified amount
+  Future<void> incrementScore(String gameId, String userId, int points) async {
+    try {
+      await _scoreService.incrementScore(gameId, userId, points);
+      print('Incremented score for user $userId by $points points');
+    } catch (e) {
+      print('Error incrementing score: $e');
+      throw Exception('Failed to update score: $e');
+    }
   }
 }

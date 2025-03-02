@@ -8,6 +8,7 @@ class Question {
   final String correctAnswer;
   final String subject;
   final String syllabus;
+  final String? imageUrl;
   final DocumentReference? request;
   final List<String>? topics;
   final List<String>? mcqChoices;
@@ -19,6 +20,7 @@ class Question {
     required this.correctAnswer,
     required this.subject,
     required this.syllabus,
+    this.imageUrl,
     this.request,
     this.topics,
     this.id,
@@ -34,6 +36,7 @@ class Question {
       correctAnswer: json['correctAnswer'] as String,
       subject: json['subject'] as String,
       syllabus: json['syllabus'] as String,
+      imageUrl: json['imageUrl'] as String?,
       request: json['request'] as DocumentReference?,
       topics: (json['topics'] as List<dynamic>?)?.cast<String>(),
       mcqChoices: (json['mcqChoices'] as List<dynamic>?)?.cast<String>(),
@@ -49,9 +52,19 @@ class Question {
       correctAnswer: data['correctAnswer'] as String,
       subject: data['subject'] as String,
       syllabus: data['syllabus'] as String,
+      imageUrl: data['imageUrl'] as String?,
       request: data['request'] as DocumentReference?,
       topics: (data['topics'] as List<dynamic>?)?.cast<String>(),
       mcqChoices: (data['mcqChoices'] as List<dynamic>?)?.cast<String>(),
     );
+  }
+
+  factory Question.fromFirestore(DocumentSnapshot doc) {
+    if (!doc.exists) {
+      throw Exception('Document does not exist!');
+    }
+    
+    final data = doc.data() as Map<String, dynamic>;
+    return Question.fromMap(data, id: doc.id);
   }
 }

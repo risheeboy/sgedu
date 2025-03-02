@@ -284,4 +284,123 @@ ${singaporeEducationPrompt}`;
     return null;
   }
 );
+
+// Listen for new score documents with pending status
+export const validateAnswer = onDocumentWritten(
+  {
+    document: "games/{gameId}/scores/{scoreId}",
+    region: "asia-southeast1"
+  },
+  async (event) => {
+    // Make sure data exists
+    if (!event.data || !event.data.after || !event.data.after.data()) {
+      console.log('No data available');
+      return null;
+    }
+    
+    const scoreData = event.data.after.data() as {
+      status: string;
+      userAnswer: string;
+      correctAnswer: string;
+    };
+    
+    // Only process documents with pending status
+    if (scoreData.status !== 'pending') {
+      console.log('Score document is not pending, skipping validation');
+      return null;
+    }
+    
+    try {
+      console.log(`Processing answer validation for score: ${event.params.scoreId}`);
+      
+      const userAnswer = scoreData.userAnswer;
+      const correctAnswer = scoreData.correctAnswer;
+      
+      // Call Gemini model to analyze the answer
+      const model = vertexAI.preview.getGenerativeModel({ model: 'gemini-2.0-pro-exp-02-05' });
+      
+      const prompt = `
+        I need you to evaluate a student's answer to an educational question.
+        
+        Question's correct answer: "${correctAnswer}"
+        Student's submitted answer: "${userAnswer}"
+        
+        Please analyze in detail and respond with a valid JSON object containing ONLY these fields:
+        {
+          "isCorrect": boolean, // true if the answer is correct, false otherwise
+          "feedback": string, // constructive feedback explaining what was good, what was missing or incorrect
+          "confidenceScore": number // a score between 0-1 representing your confidence in this assessment
+        }
+        
+        Be somewhat lenient with minor spelling errors or different phrasings that convey the same meaning.
+        Your feedback should be constructive, educational, and help the student improve.
+      `;
+      
+      const result = await model.generateContent(prompt);
+      
+      // Check if there are candidates in the response
+      if (!result.response || !result.response.candidates || 
+          result.response.candidates.length === 0) {
+        throw new Error('Gemini returned an empty response');
+      }
+      
+      const candidate = result.response.candidates[0];
+      if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
+        throw new Error('Gemini returned an invalid content structure');
+      }
+      
+      const textResponse = candidate.content.parts[0].text;
+      if (!textResponse) {
+        throw new Error('Gemini returned empty text content');
+      }
+      
+      console.log('Generated feedback:', textResponse);
+      
+      // Extract JSON from the response
+      let jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Could not extract valid JSON from model response');
+      }
+      
+      const feedbackJson = JSON.parse(jsonMatch[0]) as {
+        isCorrect: boolean;
+        feedback: string;
+        confidenceScore: number;
+      };
+      
+      // Make sure event.data.after exists
+      if (!event.data || !event.data.after) {
+        throw new Error('No document reference available');
+      }
+      
+      // Update the score document with the results
+      await event.data.after.ref.update({
+        status: 'completed',
+        isCorrect: feedbackJson.isCorrect,
+        feedback: feedbackJson.feedback,
+        confidenceScore: feedbackJson.confidenceScore,
+        processedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      return null;
+    } catch (error) {
+      console.error('Error validating answer:', error);
+      
+      // Make sure event.data.after exists
+      if (!event.data || !event.data.after) {
+        console.error('No document reference available for error update');
+        return null;
+      }
+      
+      // Update document with error status
+      await event.data.after.ref.update({
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        processedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      return null;
+    }
+  }
+);
 export * from './chat';

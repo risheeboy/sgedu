@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+
 import '../models/game.dart';
 import '../models/question.dart';
+import '../models/score.dart';
 import '../services/game_service.dart';
-import '../services/question_service.dart';
+import '../services/score_service.dart';
 import '../widgets/common_app_bar.dart';
-import 'package:go_router/go_router.dart';
 
 class GameScreen extends StatefulWidget {
   final String gameId;
@@ -22,11 +26,11 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   final GameService _gameService = GameService();
-  final QuestionService _questionService = QuestionService();
+  final ScoreService _scoreService = ScoreService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
   Stream<Game?>? _gameStream;
-  Stream<List<GameScore>>? _scoresStream;
+  StreamSubscription<Game?>? _gameSubscription;
   
   Question? _currentQuestion;
   bool _loading = true;
@@ -35,38 +39,31 @@ class _GameScreenState extends State<GameScreen> {
   String? _selectedMcqOption;
   bool _answerSubmitted = false;
   final TextEditingController _userAnswerController = TextEditingController();
+  bool _isSubmitting = false;
+  String _feedback = '';
+  bool _hasSubmittedAnswer = false;
+  bool _isAnswerCorrect = false;
   
   // Current scores map for quick lookup
   Map<String, int> _playerScores = {};
   
+  // Keep track of active subscriptions so we can cancel them
+  StreamSubscription<Score>? _activeScoreSubscription;
+  
   @override
   void initState() {
     super.initState();
-    _initializeStreams();
+    _loadGame();
     _autoJoinGame();
+    _setupScoreListeners();
   }
   
-  void _initializeStreams() {
+  void _loadGame() {
+    // Load the game
     _gameStream = _gameService.getGameStream(widget.gameId);
-    _scoresStream = _gameService.getGameScoresStream(widget.gameId);
     
-    // Listen to score changes to update leaderboard
-    _scoresStream?.listen((scores) {
-      // Reset scores
-      final newScores = <String, int>{};
-      
-      // Calculate total score for each player
-      for (var score in scores) {
-        newScores[score.userId] = (newScores[score.userId] ?? 0) + score.score;
-      }
-      
-      setState(() {
-        _playerScores = newScores;
-      });
-    });
-    
-    // Listen to game changes to update current question
-    _gameStream?.listen((game) {
+    // Listen for game updates
+    _gameSubscription = _gameStream?.listen((game) {
       if (game != null && game.status == GameStatus.inProgress) {
         _loadCurrentQuestion(game);
       }
@@ -74,52 +71,48 @@ class _GameScreenState extends State<GameScreen> {
   }
   
   Future<void> _loadCurrentQuestion(Game game) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _showAnswer = false;
-      _selectedMcqOption = null;
-      _answerSubmitted = false;
-      _userAnswerController.clear();
-    });
+    if (game.status != GameStatus.inProgress || game.currentQuestionIndex < 0) {
+      setState(() {
+        _loading = false;
+        _error = 'No active question';
+      });
+      return;
+    }
+
+    // Reset question state when loading a new question
+    _resetQuestionState();
     
     try {
-      // Get the current question ID
-      final currentQuestionId = await _gameService.getCurrentQuestionId(game.id);
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
       
-      if (currentQuestionId == null) {
+      final questionId = await _gameService.getCurrentQuestionId(game.id!);
+      
+      if (questionId == null) {
         setState(() {
-          _error = 'No question available';
           _loading = false;
+          _error = 'Error: No current question ID';
         });
         return;
       }
       
-      // Check if user has already answered this question
-      final userScores = await FirebaseFirestore.instance
-          .collection('games')
-          .doc(game.id)
-          .collection('scores')
-          .where('userId', isEqualTo: _auth.currentUser?.uid)
-          .where('questionId', isEqualTo: currentQuestionId)
-          .get();
+      final question = await _gameService.getQuestion(questionId);
       
-      // If user has already answered, mark as submitted
-      final hasSubmitted = userScores.docs.isNotEmpty;
-      
-      // Get the question
-      final question = await _questionService.getQuestionById(currentQuestionId);
-      
-      setState(() {
-        _currentQuestion = question;
-        _loading = false;
-        _answerSubmitted = hasSubmitted;
-      });
+      if (mounted) {
+        setState(() {
+          _currentQuestion = question;
+          _loading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = 'Error loading question: $e';
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Error loading question: ${e.toString()}';
+        });
+      }
     }
   }
   
@@ -130,51 +123,183 @@ class _GameScreenState extends State<GameScreen> {
   }
   
   Future<void> _submitAnswer() async {
-    if (_currentQuestion == null || _answerSubmitted) return;
-    
-    String answer = '';
-    bool isCorrect = false;
-    
-    // Get the answer based on question type
-    if (_currentQuestion!.type.toLowerCase() == 'mcq') {
-      if (_selectedMcqOption == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select an answer')),
-        );
-        return;
-      }
-      answer = _selectedMcqOption!;
-      isCorrect = answer.toLowerCase() == _currentQuestion!.correctAnswer.toLowerCase();
-    } else {
-      // For short answer questions
-      answer = _userAnswerController.text.trim();
-      if (answer.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter an answer')),
-        );
-        return;
-      }
-      
-      // Basic comparison - could be enhanced with more sophisticated matching
-      isCorrect = answer.toLowerCase() == _currentQuestion!.correctAnswer.toLowerCase();
+    print('Inside _submitAnswer');
+    // Don't submit if there's no current question or the answer is empty
+    if (_currentQuestion == null) {
+      print('No current question');
+      return;
     }
     
-    try {
-      await _gameService.submitAnswer(
-        gameId: widget.gameId,
-        questionId: _currentQuestion!.id!,
-        answer: answer,
-        isCorrect: isCorrect,
-      );
-      
+    if (!_isAnswerReady()) {
+      print('Answer not ready');
+      return;
+    }
+    
+    // Prevent duplicate submissions
+    if (_isSubmitting) {
+      print('Already submitting');
+      return;
+    }
+    
+    setState(() {
+      _isSubmitting = true;
+    });
+    
+    final user = _auth.currentUser;
+    if (user == null) {
+      print('Error: User is null');
       setState(() {
-        _answerSubmitted = true;
-        _showAnswer = true; // Show answer feedback automatically after submission
+        _isSubmitting = false;
       });
+      return;
+    }
+    
+    print('Preparing to submit answer');
+    
+    // Get the right answer based on question type
+    final String userAnswer;
+    if (_currentQuestion!.mcqChoices != null && _currentQuestion!.mcqChoices!.isNotEmpty) {
+      userAnswer = _selectedMcqOption ?? '';
+    } else {
+      userAnswer = _userAnswerController.text.trim();
+    }
+    
+    final question = _currentQuestion!;
+    
+    try {
+      // Handle MCQ and text questions differently
+      if (question.mcqChoices != null && question.mcqChoices!.isNotEmpty) {
+        // For MCQ questions, evaluate locally
+        print('Processing MCQ answer locally');
+        
+        final isCorrect = userAnswer.toLowerCase() == question.correctAnswer.toLowerCase();
+        
+        // Store the result in game state
+        setState(() {
+          _isAnswerCorrect = isCorrect;
+          _hasSubmittedAnswer = true;
+          _isSubmitting = false;
+          _feedback = isCorrect 
+              ? 'Correct! Well done.' 
+              : 'Incorrect. The correct answer is: ${question.correctAnswer}';
+        });
+        
+        // Try to record the score to Firestore, but don't block UI on it
+        try {
+          // Create score document for record-keeping
+          await _scoreService.submitAnswer(
+            gameId: widget.gameId,
+            question: question,
+            userAnswer: userAnswer,
+            selectedOption: _selectedMcqOption,
+            isCorrect: isCorrect,
+            status: ScoreStatus.completed
+          );
+          
+          // Award points immediately if correct
+          if (isCorrect) {
+            await _gameService.incrementPlayerScore(widget.gameId, user.uid);
+          }
+        } catch (scoreError) {
+          // Just log the error but don't affect the UI flow
+          print('Error recording score to Firestore (non-critical): $scoreError');
+        }
+      } else {
+        // For text questions, submit for AI validation
+        print('Submitting text answer for AI evaluation: $userAnswer for question ID: ${question.id}');
+        
+        // We need to safely handle the case where the user navigates away before
+        // the score processing is complete
+        DocumentReference? scoreRef;
+        try {
+          scoreRef = await _scoreService.submitAnswer(
+            gameId: widget.gameId,
+            question: question,
+            userAnswer: userAnswer,
+            selectedOption: null
+          );
+          
+          print('Answer submitted with document ID: ${scoreRef.id}');
+        } catch (submitError) {
+          print('Error submitting answer: $submitError');
+          if (mounted) {
+            setState(() {
+              _isSubmitting = false;
+              _feedback = 'Error submitting answer: $submitError';
+            });
+          }
+          return;
+        }
+        
+        // If we get here, the score document was created successfully
+        
+        // Set a timeout to prevent UI from hanging indefinitely
+        final timeoutTimer = Timer(const Duration(seconds: 60), () {
+          print('Timeout reached while waiting for score evaluation');
+          
+          // Check if widget is still mounted before updating state 
+          if (mounted) {
+            setState(() {
+              _isSubmitting = false;
+              _feedback = 'Evaluation is taking longer than expected. Please check back later.';
+            });
+          }
+          
+          // Cancel any active subscription
+          _activeScoreSubscription?.cancel();
+          _activeScoreSubscription = null;
+        });
+        
+        // Listen for updates to the score
+        _activeScoreSubscription?.cancel();  // Cancel any existing subscription
+        _activeScoreSubscription = _scoreService.getScoreStream(widget.gameId, scoreRef.id).listen((score) {
+          // Cancel the timeout timer since we got a response
+          timeoutTimer.cancel();
+          
+          print('Received score update - Status: ${score.status}');
+          
+          // Only process if still mounted to avoid setState after dispose
+          if (!mounted) {
+            print('Widget not mounted, skipping state update');
+            return;
+          }
+          
+          // If score is complete, update the UI
+          if (score.status == ScoreStatus.completed) {
+            setState(() {
+              _isSubmitting = false;
+              _hasSubmittedAnswer = true;
+              _isAnswerCorrect = score.isCorrect ?? false;
+              _feedback = score.feedback ?? 'No feedback available';
+            });
+            
+            // Cancel subscription since we've got our result
+            _activeScoreSubscription?.cancel();
+            _activeScoreSubscription = null;
+          } 
+          // If there was an error, show error message
+          else if (score.status == ScoreStatus.error) {
+            setState(() {
+              _isSubmitting = false;
+              _feedback = 'Error evaluating answer: ${score.feedback ?? "Unknown error"}';
+            });
+            
+            // Cancel subscription since we've got our result
+            _activeScoreSubscription?.cancel();
+            _activeScoreSubscription = null;
+          }
+          // Otherwise (status is still pending), just wait
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error submitting answer: $e')),
-      );
+      print('Error in _submitAnswer: $e');
+      
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _feedback = 'Error: $e';
+        });
+      }
     }
   }
   
@@ -205,13 +330,35 @@ class _GameScreenState extends State<GameScreen> {
         // Refresh streams
         setState(() {
           _gameStream = _gameService.getGameStream(widget.gameId);
-          _scoresStream = _gameService.getGameScoresStream(widget.gameId);
+          _gameSubscription = _gameStream?.listen((game) {
+            if (game != null && game.status == GameStatus.inProgress) {
+              _loadCurrentQuestion(game);
+            }
+          });
         });
       }
     } catch (e) {
       print('Error auto-joining game: $e');
       // Don't show error to user as this is an automatic action
     }
+  }
+  
+  // Reset the current question state
+  void _resetQuestionState() {
+    setState(() {
+      _userAnswerController.clear();
+      _selectedMcqOption = null;
+      _hasSubmittedAnswer = false;
+      _showAnswer = false;
+      _answerSubmitted = false;
+      _isSubmitting = false;
+      _feedback = '';
+      _isAnswerCorrect = false;
+      
+      // Cancel any active subscriptions to avoid conflicts
+      _activeScoreSubscription?.cancel();
+      _activeScoreSubscription = null;
+    });
   }
   
   @override
@@ -301,7 +448,28 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ),
         Expanded(
-          child: _buildLeaderboard(game),
+          child: FutureBuilder<Map<String, int>>(
+            future: _gameService.getGameLeaderboard(game.id!),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              if (snapshot.hasError) {
+                return Center(child: Text('Error loading scores: ${snapshot.error}'));
+              }
+              
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No scores available'));
+              }
+              
+              // Update the player scores with the loaded data
+              _playerScores = snapshot.data!;
+              
+              // Now build the leaderboard with the loaded scores
+              return _buildLeaderboard(game);
+            },
+          ),
         ),
         Padding(
           padding: const EdgeInsets.all(16.0),
@@ -357,83 +525,119 @@ class _GameScreenState extends State<GameScreen> {
     
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Question ${game.currentQuestionIndex + 1}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _currentQuestion!.question,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Different UI based on question type
-                    if (_currentQuestion!.type.toLowerCase() == 'mcq')
-                      ..._buildMcqOptions()
-                    else
-                      _buildShortAnswerInput(),
-                      
-                    const SizedBox(height: 16),
-                    
-                    // Show submit button if not yet submitted
-                    if (!_answerSubmitted)
-                      ElevatedButton(
-                        onPressed: _submitAnswer,
-                        child: const Text('Submit Answer'),
+      child: Card(
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Question ${game.currentQuestionIndex + 1}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blue,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _currentQuestion!.question,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                
+                // Display image if available
+                if (_currentQuestion!.imageUrl != null && _currentQuestion!.imageUrl!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: Center(
+                      child: Image.network(
+                        _currentQuestion!.imageUrl!,
+                        height: 200,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / 
+                                      (loadingProgress.expectedTotalBytes ?? 1)
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Text('Error loading image');
+                        },
                       ),
-                      
-                    // Show feedback if answer was submitted or if showing answer
-                    if (_showAnswer || _answerSubmitted)
-                      ..._buildAnswerFeedback(),
+                    ),
+                  ),
+                
+                const SizedBox(height: 16),
+                
+                // Answer input based on question type
+                ..._buildAnswerInput(),
+                
+                const SizedBox(height: 16),
+                
+                // Submit answer button and feedback
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Show submit button if not yet submitted
+                    if (!_hasSubmittedAnswer)
+                      ElevatedButton(
+                        onPressed: _isSubmitting ? null : () {
+                          print('Submitting answer: ${_isAnswerReady() ? 'Ready' : 'Not Ready'}');
+                          if (_isAnswerReady()) {
+                            _submitAnswer();
+                          }
+                        },
+                        child: _isSubmitting 
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('Evaluating answer...'),
+                                ],
+                              )
+                            : const Text('Submit Answer'),
+                      ),
                   ],
                 ),
-              ),
-            ),
-            
-            // Host controls
-            if (game.hostId == _auth.currentUser?.uid)
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                
+                // Show loading indicator if submitting
+                if (_isSubmitting)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      children: const [
                         Text(
-                          'Host Controls',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: () async {
-                            try {
-                              await _gameService.nextQuestion(game.id);
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e')),
-                              );
-                            }
-                          },
-                          child: const Text('Next Question'),
+                          'Please wait while AI is evaluating your answer...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontStyle: FontStyle.italic),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
-          ],
+                  
+                // Show feedback if answer was submitted or if showing answer
+                if (_showAnswer || _hasSubmittedAnswer)
+                  ..._buildAnswerFeedback(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -503,26 +707,18 @@ class _GameScreenState extends State<GameScreen> {
   }
   
   List<Widget> _buildAnswerFeedback() {
-    String answer = '';
-    bool isCorrect = false;
-    
-    // Determine correctness based on question type
-    if (_currentQuestion!.type.toLowerCase() == 'mcq') {
-      answer = _selectedMcqOption ?? '';
-      isCorrect = answer.toLowerCase() == _currentQuestion!.correctAnswer.toLowerCase();
-    } else {
-      answer = _userAnswerController.text.trim();
-      isCorrect = answer.toLowerCase() == _currentQuestion!.correctAnswer.toLowerCase();
+    if (_currentQuestion == null || _feedback.isEmpty) {
+      return [];
     }
-    
+
     return [
-      const SizedBox(height: 16),
+      const SizedBox(height: 24),
       const Divider(),
       const SizedBox(height: 8),
       Text(
-        isCorrect ? '✅ Correct!' : '❌ Incorrect',
+        _isAnswerCorrect ? '✓ Correct' : '✗ Incorrect',
         style: TextStyle(
-          color: isCorrect ? Colors.green : Colors.red,
+          color: _isAnswerCorrect ? Colors.green : Colors.red,
           fontWeight: FontWeight.bold,
           fontSize: 18,
         ),
@@ -533,17 +729,67 @@ class _GameScreenState extends State<GameScreen> {
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       const SizedBox(height: 8),
-      Text('Explanation: ${_currentQuestion!.explanation}'),
+      Text('Explanation:'),
+      Markdown(
+        data: _currentQuestion!.explanation,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+      ),
+      const SizedBox(height: 8),
+      Text('Feedback:'),
+      Markdown(
+        data: _feedback,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+      ),
+      const SizedBox(height: 16),
+      Center(
+        child: ElevatedButton(
+          onPressed: _goToNextQuestion,
+          child: const Text('Next Question'),
+        ),
+      ),
     ];
   }
   
+  List<Widget> _buildAnswerInput() {
+    if (_currentQuestion == null) {
+      return [];
+    }
+    
+    // If the question has MCQ choices, use the MCQ options UI
+    if (_currentQuestion!.mcqChoices != null && _currentQuestion!.mcqChoices!.isNotEmpty) {
+      return _buildMcqOptions();
+    } 
+    // Otherwise use the short answer input
+    else {
+      return [_buildShortAnswerInput()];
+    }
+  }
+  
+  bool _isAnswerReady() {
+    if (_currentQuestion == null) return false;
+    
+    // For MCQ questions, check if an option is selected
+    if (_currentQuestion!.mcqChoices != null && _currentQuestion!.mcqChoices!.isNotEmpty) {
+      return _selectedMcqOption != null;
+    } 
+    // For text-based questions, check if text is entered
+    else {
+      return _userAnswerController.text.trim().isNotEmpty;
+    }
+  }
+  
   Widget _buildLeaderboard(Game game) {
+    // Use Theme to get the correct colors based on the current theme mode
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
         border: Border(
           left: BorderSide(
-            color: Colors.grey[300]!,
+            color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
             width: 1,
           ),
         ),
@@ -573,7 +819,9 @@ class _GameScreenState extends State<GameScreen> {
                           final isCurrentUser = userId == _auth.currentUser?.uid;
                           
                           return Card(
-                            color: isCurrentUser ? Colors.blue[50] : null,
+                            color: isCurrentUser 
+                                ? (isDarkMode ? Colors.blue[900] : Colors.blue[50])
+                                : null,
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
                               child: Row(
@@ -582,14 +830,23 @@ class _GameScreenState extends State<GameScreen> {
                                     child: Text(
                                       playerName,
                                       style: TextStyle(
-                                        fontWeight: isCurrentUser ? FontWeight.bold : null,
+                                        fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
                                       ),
                                     ),
                                   ),
-                                  Text(
-                                    '$score pts',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                    decoration: BoxDecoration(
+                                      color: isDarkMode ? Colors.blue[800] : Colors.blue[100],
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      score.toString(),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isDarkMode ? Colors.white : Colors.blue[800],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -600,21 +857,83 @@ class _GameScreenState extends State<GameScreen> {
                       }(),
                   ),
           ),
-          
-          // Game info
-          const Divider(),
-          const SizedBox(height: 8),
-          Text(
-            'Game Status: ${game.status.toString().split('.').last}',
-            style: const TextStyle(fontStyle: FontStyle.italic),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Players: ${game.players.length}',
-            style: const TextStyle(fontStyle: FontStyle.italic),
-          ),
         ],
       ),
     );
+  }
+  
+  // Go to the next question
+  Future<void> _goToNextQuestion() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    
+    final gameDoc = await FirebaseFirestore.instance
+        .collection('games')
+        .doc(widget.gameId)
+        .get();
+    
+    if (!gameDoc.exists) return;
+    
+    final game = Game.fromFirestore(gameDoc);
+    
+    try {
+      // Check if user is the host
+      if (game.hostId == user.uid) {
+        // If user is host, they can advance the game to the next question
+        await _gameService.nextQuestion(widget.gameId);
+      } else {
+        // If not host, just reset the question state to prepare for next question
+        setState(() {
+          _resetQuestionState();
+        });
+      }
+    } catch (e) {
+      print('Error going to next question: $e');
+      // Show a snackbar with the error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+  
+  // Setup listeners for scores from the subcollection
+  void _setupScoreListeners() {
+    // Listen for real-time score updates
+    FirebaseFirestore.instance
+        .collection('games')
+        .doc(widget.gameId)
+        .collection('scores')
+        .snapshots()
+        .listen((snapshot) {
+      // Group the scores by user ID
+      final scores = <String, int>{};
+      
+      // Process each score document
+      for (final doc in snapshot.docs) {
+        final userId = doc.get('userId') as String;
+        final score = doc.get('score') as int? ?? 0;
+        
+        // Aggregate scores by user
+        scores[userId] = (scores[userId] ?? 0) + score;
+      }
+      
+      // Update the UI with the latest scores
+      if (mounted) {
+        setState(() {
+          _playerScores = scores;
+        });
+      }
+    }, onError: (error) {
+      print('Error listening to scores: $error');
+    });
+  }
+  
+  @override
+  void dispose() {
+    _userAnswerController.dispose();
+    _gameSubscription?.cancel();
+    // Cancel any active score subscriptions
+    _activeScoreSubscription?.cancel();
+    super.dispose();
   }
 }
