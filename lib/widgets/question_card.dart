@@ -263,15 +263,17 @@ class _QuestionCardState extends State<QuestionCard> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: const Text('Positive'),
+                  title: const Text('Useful'),
                   trailing: IconButton(
+                    iconSize: 15,
                     icon: const Icon(Icons.thumb_up),
                     onPressed: () => _submitFeedback('positive'),
                   ),
                 ),
                 ListTile(
-                  title: const Text('Negative'),
+                  title: const Text('Not Useful'),
                   trailing: IconButton(
+                    iconSize: 15,
                     icon: const Icon(Icons.thumb_down),
                     onPressed: _showNegativeFeedbackOptions,
                   ),
