@@ -78,6 +78,65 @@ class QuizService {
     });
   }
 
+  Future<void> removeQuestionFromQuiz({
+    required String quizId,
+    required String questionId,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('Must be signed in to modify quiz');
+    }
+
+    final quizDoc = await _quizzes.doc(quizId).get();
+    if (!quizDoc.exists) {
+      throw Exception('Quiz not found');
+    }
+
+    final quiz = Quiz.fromFirestore(quizDoc);
+    if (quiz.userId != user.uid) {
+      throw Exception('Not authorized to modify this quiz');
+    }
+
+    final questionIds = List<String>.from(quiz.questionIds);
+    questionIds.remove(questionId);
+
+    await _quizzes.doc(quizId).update({
+      'questionIds': questionIds,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateQuestionOrder({
+    required String quizId,
+    required List<String> newQuestionIds,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('Must be signed in to modify quiz');
+    }
+
+    final quizDoc = await _quizzes.doc(quizId).get();
+    if (!quizDoc.exists) {
+      throw Exception('Quiz not found');
+    }
+
+    final quiz = Quiz.fromFirestore(quizDoc);
+    if (quiz.userId != user.uid) {
+      throw Exception('Not authorized to modify this quiz');
+    }
+
+    // Verify that the new list contains the same questions
+    if (quiz.questionIds.length != newQuestionIds.length ||
+        !quiz.questionIds.toSet().containsAll(newQuestionIds.toSet())) {
+      throw Exception('Invalid question list - must contain the same questions');
+    }
+
+    await _quizzes.doc(quizId).update({
+      'questionIds': newQuestionIds,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<List<String>> getQuizzesContainingQuestion(String questionId) async {
     final user = _auth.currentUser;
     if (user == null) return [];

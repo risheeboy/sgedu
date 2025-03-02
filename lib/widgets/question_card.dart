@@ -265,14 +265,14 @@ class _QuestionCardState extends State<QuestionCard> {
                 ListTile(
                   title: const Text('Positive'),
                   trailing: IconButton(
-                    icon: const Icon(Icons.thumb_up, color: Colors.green),
+                    icon: const Icon(Icons.thumb_up),
                     onPressed: () => _submitFeedback('positive'),
                   ),
                 ),
                 ListTile(
                   title: const Text('Negative'),
                   trailing: IconButton(
-                    icon: const Icon(Icons.thumb_down, color: Colors.red),
+                    icon: const Icon(Icons.thumb_down),
                     onPressed: _showNegativeFeedbackOptions,
                   ),
                 ),

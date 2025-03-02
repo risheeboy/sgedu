@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/quiz.dart';
 import '../services/quiz_service.dart';
 import '../services/question_service.dart';
@@ -26,12 +27,11 @@ class _QuizScreenState extends State<QuizScreen> {
   final QuestionService _questionService = QuestionService();
   Quiz? _quiz;
   List<Question>? _questions;
-  int _currentQuestionIndex = 0;
   bool _loading = true;
   String? _error;
-  bool _showAnswer = false;
-  String? _selectedMcqOption;
-  final TextEditingController _userAnswerController = TextEditingController();
+  bool _isEditing = false;
+  bool _isSaving = false;
+  bool _isRemoving = false;
 
   @override
   void initState() {
@@ -59,13 +59,24 @@ class _QuizScreenState extends State<QuizScreen> {
       final quiz = Quiz.fromFirestore(quizDoc);
       
       // Load all questions for this quiz
-      final questions = await Future.wait(
+      final questionsList = await Future.wait(
         quiz.questionIds.map((id) => _questionService.getQuestionById(id))
       );
 
+      // Filter out null values and ensure the questions are in the same order as the questionIds
+      final questions = <Question>[];
+      for (var id in quiz.questionIds) {
+        final question = questionsList
+            .whereType<Question>()
+            .firstWhere((q) => q.id == id, orElse: () => null as Question);
+        if (question != null) {
+          questions.add(question);
+        }
+      }
+
       setState(() {
         _quiz = quiz;
-        _questions = questions.whereType<Question>().toList();
+        _questions = questions;
         _loading = false;
       });
     } catch (e) {
@@ -74,35 +85,6 @@ class _QuizScreenState extends State<QuizScreen> {
         _loading = false;
       });
     }
-  }
-
-  void _nextQuestion() {
-    if (_questions != null && _currentQuestionIndex < _questions!.length - 1) {
-      setState(() {
-        _currentQuestionIndex++;
-        _showAnswer = false;
-        _selectedMcqOption = null;
-        _userAnswerController.clear();
-      });
-    }
-  }
-
-  void _previousQuestion() {
-    if (_currentQuestionIndex > 0) {
-      setState(() {
-        _currentQuestionIndex--;
-        _showAnswer = false;
-        _selectedMcqOption = null;
-        _userAnswerController.clear();
-      });
-    }
-  }
-
-  void _selectMcqOption(String option) {
-    setState(() {
-      _selectedMcqOption = option;
-      _showAnswer = true;
-    });
   }
 
   void _handleBackButton() {
@@ -114,10 +96,145 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _userAnswerController.dispose();
-    super.dispose();
+  Future<void> _saveQuestionOrder() async {
+    if (_quiz == null || _questions == null) return;
+    
+    setState(() {
+      _isSaving = true;
+    });
+    
+    try {
+      // Extract the question IDs in the current order
+      final newQuestionIds = _questions!.map((q) => q.id!).toList();
+      
+      // Save the new order
+      await _quizService.updateQuestionOrder(
+        quizId: widget.quizId,
+        newQuestionIds: newQuestionIds,
+      );
+      
+      // Exit editing mode
+      setState(() {
+        _isEditing = false;
+        _isSaving = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Question order saved')),
+      );
+    } catch (e) {
+      setState(() {
+        _isSaving = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving question order: $e')),
+      );
+    }
+  }
+
+  Future<void> _removeQuestion(String questionId) async {
+    if (_quiz == null) return;
+    
+    setState(() {
+      _isRemoving = true;
+    });
+    
+    try {
+      await _quizService.removeQuestionFromQuiz(
+        quizId: widget.quizId,
+        questionId: questionId,
+      );
+      
+      // Reload quiz to update the UI
+      await _loadQuiz();
+      
+      setState(() {
+        _isRemoving = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Question removed from quiz')),
+      );
+    } catch (e) {
+      setState(() {
+        _isRemoving = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error removing question: $e')),
+      );
+    }
+  }
+
+  void _confirmRemoveQuestion(Question question) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Question?'),
+        content: Text('Are you sure you want to remove this question from the quiz?\n\n"${question.question}"'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _removeQuestion(question.id!);
+            },
+            child: const Text('Remove'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final Question item = _questions!.removeAt(oldIndex);
+      _questions!.insert(newIndex, item);
+    });
+  }
+
+  void _toggleEditMode() {
+    if (_isEditing) {
+      // Prompt to save changes
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Save Changes?'),
+          content: const Text('Do you want to save the new question order?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  _isEditing = false;
+                });
+                _loadQuiz(); // Reload original order
+              },
+              child: const Text('Discard'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _saveQuestionOrder();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      setState(() {
+        _isEditing = true;
+      });
+    }
   }
 
   @override
@@ -154,9 +271,8 @@ class _QuizScreenState extends State<QuizScreen> {
       );
     }
 
-    final currentQuestion = _questions![_currentQuestionIndex];
-    final hasMcqChoices = currentQuestion.mcqChoices != null && 
-                          currentQuestion.mcqChoices!.isNotEmpty;
+    // Check if the current user is the owner of the quiz
+    final isOwner = _quiz!.userId == FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
       appBar: CommonAppBar(
@@ -168,183 +284,127 @@ class _QuizScreenState extends State<QuizScreen> {
         ),
         automaticallyImplyLeading: false,
         additionalActions: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(
-                'Question ${_currentQuestionIndex + 1}/${_questions!.length}',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+          if (isOwner && !_isEditing)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: 'Edit Question Order',
+              onPressed: _toggleEditMode,
             ),
-          ),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    currentQuestion.question,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Display MCQ options if available
-              if (hasMcqChoices) ...[
-                ...currentQuestion.mcqChoices!.map((choice) => 
-                  Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4.0),
-                    color: _selectedMcqOption == choice 
-                        ? Colors.blue.shade100 
-                        : null,
-                    child: InkWell(
-                      onTap: _showAnswer ? null : () => _selectMcqOption(choice),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                choice,
-                                style: Theme.of(context).textTheme.bodyMedium,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _isEditing
+                  ? 'Drag and drop questions to reorder them:'
+                  : 'Questions in this quiz:',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _isRemoving
+                  ? const Center(child: CircularProgressIndicator())
+                  : _isEditing
+                      ? ReorderableListView.builder(
+                          itemCount: _questions!.length,
+                          onReorder: _onReorder,
+                          itemBuilder: (context, index) {
+                            final question = _questions![index];
+                            return Card(
+                              key: ValueKey(question.id),
+                              margin: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: ListTile(
+                                leading: const Icon(Icons.drag_handle),
+                                title: Text(
+                                  'Question ${index + 1}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: Text(
+                                  question.question,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete),
+                                  tooltip: 'Remove Question',
+                                  onPressed: () => _confirmRemoveQuestion(question),
+                                ),
                               ),
-                            ),
-                            if (_showAnswer && choice == currentQuestion.correctAnswer)
-                              const Icon(Icons.check_circle, color: Colors.green)
-                            else if (_showAnswer && _selectedMcqOption == choice && choice != currentQuestion.correctAnswer)
-                              const Icon(Icons.cancel, color: Colors.red),
-                          ],
+                            );
+                          },
+                        )
+                      : ListView.builder(
+                          itemCount: _questions!.length,
+                          itemBuilder: (context, index) {
+                            final question = _questions![index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  child: Text('${index + 1}'),
+                                ),
+                                title: Text(
+                                  question.question,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  '${question.type} - ${question.subject}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                trailing: isOwner
+                                    ? IconButton(
+                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        tooltip: 'Remove Question',
+                                        onPressed: () => _confirmRemoveQuestion(question),
+                                      )
+                                    : null,
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                    ),
-                  )
-                ).toList(),
-                const SizedBox(height: 16),
-              ],
-              
-              // For non-MCQ questions, show text area for user to write their answer if answer not shown yet
-              if (!hasMcqChoices && !_showAnswer) ...[
-                const SizedBox(height: 16),
-                Text(
-                  'Your Answer:',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextField(
-                    controller: _userAnswerController,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.all(12),
-                      hintText: 'Type your answer here...',
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => setState(() => _showAnswer = true),
-                  child: const Text('Show Answer'),
-                ),
-              ],
-              
-              // Only show answer if it's an MCQ with a selection made or if the show answer button was clicked
-              if ((hasMcqChoices && _selectedMcqOption != null) || _showAnswer) ...[
-                // For non-MCQ questions, show the user's answer in read-only mode
-                if (!hasMcqChoices && _userAnswerController.text.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Card(
-                    color: Colors.grey.shade100,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            if (isOwner)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: _isEditing
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          Text(
-                            'Your Answer:',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                          ElevatedButton.icon(
+                            onPressed: _saveQuestionOrder,
+                            icon: const Icon(Icons.save),
+                            label: const Text('Save Question Order'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _userAnswerController.text,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _isEditing = false;
+                              });
+                              _loadQuiz(); // Reload original order
+                            },
+                            icon: const Icon(Icons.close),
+                            label: const Text('Cancel Editing'),
                           ),
                         ],
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: _toggleEditMode,
+                        icon: const Icon(Icons.reorder),
+                        label: const Text('Reorder Questions'),
                       ),
-                    ),
-                  ),
-                ],
-                
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Answer:',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          currentQuestion.correctAnswer,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                        if (currentQuestion.explanation.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            'Explanation:',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            currentQuestion.explanation,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              
-              const SizedBox(height: 50), // Add some bottom padding
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  ElevatedButton(
-                    onPressed: _currentQuestionIndex > 0 ? _previousQuestion : null,
-                    child: const Text('Previous'),
-                  ),
-                  ElevatedButton(
-                    onPressed: _currentQuestionIndex < _questions!.length - 1 
-                      ? _nextQuestion 
-                      : null,
-                    child: const Text('Next'),
-                  ),
-                ],
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
